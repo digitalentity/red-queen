@@ -67,6 +67,7 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Error Handling**: Distinguishes between **Soft** (retryable) and **Hard** (fatal) failures.
 - **Implementations**:
     - **Vertex AI (Gemini)**: Uses Google's multimodal Gemini models for advanced video understanding. It is configured via `project_id`, `location`, and `model_name`. It uses structured JSON output for reliable parsing.
+    - **Always (Debug)**: A passthrough analyzer that always returns a threat. Useful for testing storage and notification logic without external dependencies.
 
 ### 5. Artifact Storage Interface (Pluggable)
 - **Interface**: `Save(ctx, Event) (URL, error)`

@@ -24,7 +24,7 @@ zones:
 
 # Video Processing & ML Module
 ml:
-  provider: "vertex-ai" # Options: mock, vertex-ai
+  provider: "vertex-ai" # Options: mock, vertex-ai, always
   model_name: "gemini-1.5-flash"
   project_id: "your-project-id"
   location: "us-central1"

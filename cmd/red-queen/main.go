@@ -50,6 +50,9 @@ func main() {
 		defer vAnalyzer.Close()
 		analyzer = vAnalyzer
 		logger.Info("Using Vertex AI analyzer", zap.String("model", cfg.ML.ModelName))
+	case "always":
+		analyzer = &ml.PassThroughAnalyzer{}
+		logger.Warn("Using 'always' ML provider - EVERY UPLOAD WILL TRIGGER A THREAT")
 	default:
 		logger.Warn("Unknown or no ML provider configured, using mock")
 		analyzer = &ml.MockAnalyzer{}
