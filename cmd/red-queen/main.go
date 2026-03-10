@@ -47,7 +47,6 @@ func main() {
 		if err != nil {
 			logger.Fatal("Failed to initialize Vertex AI analyzer", zap.Error(err))
 		}
-		defer vAnalyzer.Close()
 		analyzer = vAnalyzer
 		logger.Info("Using Vertex AI analyzer", zap.String("model", cfg.ML.ModelName))
 	case "always":
