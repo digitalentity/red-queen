@@ -84,6 +84,9 @@ func main() {
 		case "homey":
 			notifiers = append(notifiers, notify.NewHomeyNotifier(ncfg))
 			logger.Info("Enabled Homey notifier", zap.String("homey_id", ncfg.HomeyID), zap.String("event", ncfg.Event))
+		case "telegram":
+			notifiers = append(notifiers, notify.NewTelegramNotifier(ncfg))
+			logger.Info("Enabled Telegram notifier", zap.Int64("chat_id", ncfg.ChatID))
 		default:
 			logger.Warn("Unknown notifier type", zap.String("type", ncfg.Type))
 		}

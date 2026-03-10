@@ -33,6 +33,7 @@ func TestFullSystemIntegration(t *testing.T) {
 	ftpPort := getFreePort()
 	apiPort := getFreePort()
 	webhookPort := getFreePort()
+	telegramPort := getFreePort()
 
 	// Create a parent temp directory for all test assets
 	testParentDir, err := os.MkdirTemp("", "redqueen-integration-*")
@@ -54,17 +55,19 @@ func TestFullSystemIntegration(t *testing.T) {
 	require.NoError(t, err)
 	
 	err = tmpl.Execute(f, struct {
-		TempDir     string
-		StorageDir  string
-		FTPPort     int
-		APIPort     int
-		WebhookPort int
+		TempDir      string
+		StorageDir   string
+		FTPPort      int
+		APIPort      int
+		WebhookPort  int
+		TelegramPort int
 	}{
-		TempDir:     tmpDir,
-		StorageDir:  storageDir,
-		FTPPort:     ftpPort,
-		APIPort:     apiPort,
-		WebhookPort: webhookPort,
+		TempDir:      tmpDir,
+		StorageDir:   storageDir,
+		FTPPort:      ftpPort,
+		APIPort:      apiPort,
+		WebhookPort:  webhookPort,
+		TelegramPort: telegramPort,
 	})
 	require.NoError(t, err)
 	f.Close()
@@ -83,6 +86,23 @@ func TestFullSystemIntegration(t *testing.T) {
 	}
 	go webhookServer.ListenAndServe()
 	defer webhookServer.Close()
+
+	// 2.1 Start Mock Telegram Receiver
+	telegramChan := make(chan string, 1)
+	telegramServer := &http.Server{
+		Addr: fmt.Sprintf(":%d", telegramPort),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/botTEST_TOKEN/sendPhoto" || r.URL.Path == "/botTEST_TOKEN/sendVideo" {
+				telegramChan <- "media"
+			} else if r.URL.Path == "/botTEST_TOKEN/sendMessage" {
+				telegramChan <- "text"
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"ok": true}`))
+		}),
+	}
+	go telegramServer.ListenAndServe()
+	defer telegramServer.Close()
 
 	// 3. Start Red Queen in the background
 	root, err := filepath.Abs("..")
@@ -121,6 +141,16 @@ func TestFullSystemIntegration(t *testing.T) {
 	case payload := <-webhookChan:
 		t.Logf("Received webhook: %+v", payload)
 		assert.Equal(t, "TestZone", payload["zone"])
+		
+		// Wait for Telegram too
+		select {
+		case typeOfMsg := <-telegramChan:
+			t.Logf("Received Telegram notification: %s", typeOfMsg)
+			assert.Equal(t, "media", typeOfMsg)
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timed out waiting for Telegram notification")
+		}
+
 		assert.Equal(t, "127.0.0.1", payload["camera_ip"])
 		assert.True(t, payload["is_threat"].(bool))
 		

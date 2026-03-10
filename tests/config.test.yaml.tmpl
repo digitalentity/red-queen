@@ -27,6 +27,11 @@ notifications:
   - type: "webhook"
     enabled: true
     url: "http://127.0.0.1:{{.WebhookPort}}/webhook"
+  - type: "telegram"
+    enabled: true
+    token: "TEST_TOKEN"
+    chat_id: 12345
+    url: "http://127.0.0.1:{{.TelegramPort}}"
 
 api:
   port: {{.APIPort}}
