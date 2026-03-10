@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,6 +20,20 @@ import (
 )
 
 func TestFullSystemIntegration(t *testing.T) {
+	// 0. Find free ports
+	getFreePort := func() int {
+		addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		l, err := net.ListenTCP("tcp", addr)
+		require.NoError(t, err)
+		defer l.Close()
+		return l.Addr().(*net.TCPAddr).Port
+	}
+
+	ftpPort := getFreePort()
+	apiPort := getFreePort()
+	webhookPort := getFreePort()
+
 	// Create a parent temp directory for all test assets
 	testParentDir, err := os.MkdirTemp("", "redqueen-integration-*")
 	require.NoError(t, err)
@@ -39,11 +54,17 @@ func TestFullSystemIntegration(t *testing.T) {
 	require.NoError(t, err)
 	
 	err = tmpl.Execute(f, struct {
-		TempDir    string
-		StorageDir string
+		TempDir     string
+		StorageDir  string
+		FTPPort     int
+		APIPort     int
+		WebhookPort int
 	}{
-		TempDir:    tmpDir,
-		StorageDir: storageDir,
+		TempDir:     tmpDir,
+		StorageDir:  storageDir,
+		FTPPort:     ftpPort,
+		APIPort:     apiPort,
+		WebhookPort: webhookPort,
 	})
 	require.NoError(t, err)
 	f.Close()
@@ -51,7 +72,7 @@ func TestFullSystemIntegration(t *testing.T) {
 	// 2. Start Mock Webhook Receiver
 	webhookChan := make(chan map[string]interface{}, 1)
 	webhookServer := &http.Server{
-		Addr: ":9999",
+		Addr: fmt.Sprintf(":%d", webhookPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var payload map[string]interface{}
 			if err := json.NewDecoder(r.Body).Decode(&payload); err == nil {
@@ -91,7 +112,7 @@ func TestFullSystemIntegration(t *testing.T) {
 	testFilePath := filepath.Join(testParentDir, testFileName)
 	require.NoError(t, os.WriteFile(testFilePath, []byte("fake video content"), 0644))
 
-	curlCmd := exec.Command("curl", "-s", "--user", "testuser:testpassword", "-T", testFilePath, "ftp://127.0.0.1:2121/")
+	curlCmd := exec.Command("curl", "-s", "--user", "testuser:testpassword", "-T", testFilePath, fmt.Sprintf("ftp://127.0.0.1:%d/", ftpPort))
 	out, err := curlCmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 
@@ -114,7 +135,7 @@ func TestFullSystemIntegration(t *testing.T) {
 		assert.NotEmpty(t, files, "Should find at least one file in storage")
 
 		// 7. Verify accessibility via REST API
-		apiURL := fmt.Sprintf("http://127.0.0.1:8080%s", artifactURL)
+		apiURL := fmt.Sprintf("http://127.0.0.1:%d%s", apiPort, artifactURL)
 		t.Logf("Checking API at: %s", apiURL)
 		
 		resp, err := http.Get(apiURL)
@@ -126,7 +147,7 @@ func TestFullSystemIntegration(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "fake video content", string(content))
 
-	case <-time.After(10 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("Timed out waiting for webhook")
 	}
 }

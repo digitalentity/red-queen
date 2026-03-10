@@ -41,7 +41,7 @@ zones:
 		assert.Equal(t, "Entry", cfg.Zones[0].Name)
 	})
 
-	t.Run("Environment variable override", func(t *testing.T) {
+	t.Run("Environment variables are ignored", func(t *testing.T) {
 		os.Setenv("RED_QUEEN_LOG_LEVEL", "warn")
 		os.Setenv("RED_QUEEN_FTP_PORT", "9999")
 		defer os.Unsetenv("RED_QUEEN_LOG_LEVEL")
@@ -50,7 +50,13 @@ zones:
 		cfg, err := LoadConfig(tmpFile.Name())
 		require.NoError(t, err)
 
-		assert.Equal(t, "warn", cfg.LogLevel)
-		assert.Equal(t, 9999, cfg.FTP.Port)
+		// Values should still come from the file, not environment
+		assert.Equal(t, "debug", cfg.LogLevel)
+		assert.Equal(t, 2121, cfg.FTP.Port)
+	})
+
+	t.Run("Fail when file is missing", func(t *testing.T) {
+		_, err := LoadConfig("non-existent.yaml")
+		assert.Error(t, err, "LoadConfig should fail if the specified file does not exist")
 	})
 }

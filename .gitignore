@@ -21,3 +21,7 @@ Thumbs.db
 /tmp/
 /test_tmp/
 /test_storage/
+
+# Debug
+/storage
+/config.yaml

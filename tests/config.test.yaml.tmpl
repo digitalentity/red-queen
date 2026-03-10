@@ -3,7 +3,7 @@ concurrency: 2
 
 ftp:
   listen_address: "127.0.0.1"
-  port: 2121
+  port: {{.FTPPort}}
   user: "testuser"
   password: "testpassword"
   temp_dir: "{{.TempDir}}"
@@ -26,8 +26,8 @@ storage:
 notifications:
   - type: "webhook"
     enabled: true
-    url: "http://127.0.0.1:9999/webhook"
+    url: "http://127.0.0.1:{{.WebhookPort}}/webhook"
 
 api:
-  port: 8080
+  port: {{.APIPort}}
   enabled: true

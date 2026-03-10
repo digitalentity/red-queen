@@ -18,10 +18,11 @@ import (
 
 // Coordinator orchestrates the lifecycle of a surveillance event.
 type Coordinator struct {
-	logger    *zap.Logger
-	analyzer  ml.Analyzer
-	storage   storage.Provider
-	notifiers []notify.Notifier
+	logger      *zap.Logger
+	analyzer    ml.Analyzer
+	storage     storage.Provider
+	notifiers   []notify.Notifier
+	retainFiles bool
 }
 
 // NewCoordinator creates a new instance of the Coordinator.
@@ -30,12 +31,14 @@ func NewCoordinator(
 	analyzer ml.Analyzer,
 	storage storage.Provider,
 	notifiers []notify.Notifier,
+	retainFiles bool,
 ) *Coordinator {
 	return &Coordinator{
-		logger:    logger,
-		analyzer:  analyzer,
-		storage:   storage,
-		notifiers: notifiers,
+		logger:      logger,
+		analyzer:    analyzer,
+		storage:     storage,
+		notifiers:   notifiers,
+		retainFiles: retainFiles,
 	}
 }
 
@@ -60,6 +63,11 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	// Ensure cleanup at the end
 	defer func() {
+		if c.retainFiles {
+			log.Debug("Retention enabled, keeping ephemeral file", zap.String("path", event.FilePath))
+			return
+		}
+
 		if err := os.Remove(event.FilePath); err != nil && !os.IsNotExist(err) {
 			log.Error("Failed to cleanup ephemeral file", zap.Error(err), zap.String("path", event.FilePath))
 		} else {

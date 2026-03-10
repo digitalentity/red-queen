@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -93,14 +95,14 @@ func main() {
 	}
 
 	// 4. Initialize Coordinator
-	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers)
+	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, cfg.FTP.RetainFiles)
 
 	// 5. Initialize & Start FTP Server
 	ftpServer := ftp.NewServer(logger, cfg.FTP, orchestrator, zoneManager)
 
 	// Start server in a goroutine
 	go func() {
-		if err := ftpServer.Start(); err != nil {
+		if err := ftpServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("FTP server failed", zap.Error(err))
 		}
 	}()
@@ -108,7 +110,7 @@ func main() {
 	// 6. Initialize & Start REST API
 	apiServer := api.NewServer(logger, cfg.API, cfg.Storage.Local)
 	go func() {
-		if err := apiServer.Start(); err != nil {
+		if err := apiServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("REST API failed", zap.Error(err))
 		}
 	}()

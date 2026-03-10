@@ -1,8 +1,6 @@
 package config
 
 import (
-	"strings"
-
 	"github.com/spf13/viper"
 )
 
@@ -23,6 +21,7 @@ type FTPConfig struct {
 	User          string `mapstructure:"user"`
 	Password      string `mapstructure:"password"`
 	TempDir       string `mapstructure:"temp_dir"`
+	RetainFiles   bool   `mapstructure:"retain_files"`
 }
 
 type ZoneConfig struct {
@@ -90,17 +89,8 @@ func LoadConfig(path string) (*Config, error) {
 		v.AddConfigPath("./config")
 	}
 
-	// Support environment variables
-	v.SetEnvPrefix("RED_QUEEN")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-
 	if err := v.ReadInConfig(); err != nil {
-		// It's okay if the config file is missing as long as env vars are provided,
-		// but usually we expect a file for basic structure.
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	var cfg Config

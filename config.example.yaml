@@ -11,6 +11,7 @@ ftp:
   user: "camera_user"
   password: "secure_password" # Can be overridden by RED_QUEEN_FTP_PASSWORD
   temp_dir: "/tmp/red-queen-uploads"
+  retain_files: false # If true, FTP uploads are NOT deleted after processing (useful for debugging)
 
 # Zone Manager: Registration of Cameras by IP
 zones:
