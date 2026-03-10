@@ -1,0 +1,21 @@
+# Binaries
+/red-queen
+/red-queen.exe
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go related
+*.out
+*.test
+/vendor/
+
+# Project specific
+/config.yaml
+/tmp/
