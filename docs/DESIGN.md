@@ -69,6 +69,8 @@ To ensure consistency across all modules, the system uses a structured **Event**
 ### 5. Artifact Storage Interface (Pluggable)
 - **Interface**: `Save(ctx, Event) (URL, error)`
 - **Responsibility**: Persists the artifact and returns a referenceable URL.
+- **Implementations**:
+    - **Local Storage**: Moves flagged artifacts to a permanent root directory structured by date and zone (`root_path/YYYY-MM-DD/zone/eventID_filename`).
 
 ### 6. Notification Interface (Pluggable)
 - **Interface**: `Send(ctx, Event, Result, URL) error`

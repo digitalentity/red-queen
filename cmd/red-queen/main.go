@@ -37,9 +37,21 @@ func main() {
 	// 3. Initialize Domain Components
 	zoneManager := zone.NewManager(cfg.Zones)
 	
-	// Mock implementations for now
+	// Initialize Analysis
 	analyzer := &ml.MockAnalyzer{}
-	storageProvider := &storage.MockProvider{}
+
+	// Initialize Storage
+	var storageProvider storage.Provider
+	switch cfg.Storage.Provider {
+	case "local":
+		storageProvider = storage.NewLocalStorage(cfg.Storage.Local)
+		logger.Info("Using local storage", zap.String("root_path", cfg.Storage.Local.RootPath))
+	default:
+		logger.Warn("Unknown or no storage provider configured, using mock")
+		storageProvider = &storage.MockProvider{}
+	}
+
+	// Initialize Notifications
 	notifiers := []notify.Notifier{&notify.MockNotifier{}}
 
 	// 4. Initialize Coordinator
