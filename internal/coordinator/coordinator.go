@@ -7,6 +7,7 @@ import (
 
 	"redqueen/internal/ml"
 	"redqueen/internal/models"
+	"redqueen/internal/metrics"
 	"redqueen/internal/notify"
 	"redqueen/internal/storage"
 
@@ -40,6 +41,7 @@ func NewCoordinator(
 
 // Process handles a new file upload by creating an event and running the analysis pipeline.
 func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
+	startTime := time.Now()
 	event := &models.Event{
 		ID:        uuid.New().String(),
 		FilePath:  filePath,
@@ -66,9 +68,13 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 	}()
 
 	// 1. Analyze with Retry Logic
+	mlStart := time.Now()
 	result, err := c.analyzeWithRetry(ctx, event, log)
+	metrics.MLAnalysisDuration.WithLabelValues("vertex-ai", event.Zone).Observe(time.Since(mlStart).Seconds())
+
 	if err != nil {
 		log.Error("Analysis failed after retries or encountered hard failure", zap.Error(err))
+		metrics.EventsProcessed.WithLabelValues(event.Zone, "error").Inc()
 		return
 	}
 
@@ -76,22 +82,34 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	// 2. If no threat, we are done
 	if !result.IsThreat {
+		metrics.EventsProcessed.WithLabelValues(event.Zone, "success").Inc()
 		return
 	}
+
+	metrics.MLThreatsDetected.WithLabelValues(event.Zone).Inc()
 
 	// 3. Store Artifact
 	artifactURL, err := c.storage.Save(ctx, event)
 	if err != nil {
 		log.Error("Failed to store threat artifact", zap.Error(err))
+		metrics.StorageOperations.WithLabelValues("local", "error").Inc()
 		// We continue to notify even if storage fails, though the URL will be empty/invalid
+	} else {
+		metrics.StorageOperations.WithLabelValues("local", "success").Inc()
 	}
 
 	// 4. Notify
 	for _, n := range c.notifiers {
 		if err := n.Send(ctx, event, result, artifactURL); err != nil {
 			log.Error("Notification failed", zap.Error(err))
+			metrics.NotificationsSent.WithLabelValues("notifier", "error").Inc()
+		} else {
+			metrics.NotificationsSent.WithLabelValues("notifier", "success").Inc()
 		}
 	}
+
+	metrics.EventsProcessed.WithLabelValues(event.Zone, "success").Inc()
+	log.Info("Event processing total duration", zap.Duration("duration", time.Since(startTime)))
 }
 
 func (c *Coordinator) analyzeWithRetry(ctx context.Context, event *models.Event, log *zap.Logger) (*ml.Result, error) {

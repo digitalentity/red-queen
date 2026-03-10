@@ -82,10 +82,11 @@ To ensure consistency across all modules, the system uses a structured **Event**
     - **Homey Notifier**: Supports both Homey Cloud and Homey Pro (Local). It triggers flows with a custom tag containing the alert message and artifact URL.
 
 ### 7. REST API Server
-- **Responsibility**: Serves stored artifacts and provides health monitoring.
+- **Responsibility**: Serves stored artifacts and provides health/telemetry monitoring.
 - **Endpoints**:
     - `/artifacts/{date}/{zone}/{filename}`: Serves recorded threat artifacts from local storage.
     - `/health`: Simple health check endpoint.
+    - `/metrics`: Prometheus metrics for system monitoring.
 
 ---
 

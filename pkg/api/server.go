@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"redqueen/internal/config"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -45,6 +46,9 @@ func (s *Server) Start() error {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	})
+
+	// Prometheus metrics
+	mux.Handle("/metrics", promhttp.Handler())
 
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.cfg.Port),
