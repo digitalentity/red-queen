@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"redqueen/internal/config"
@@ -45,17 +47,32 @@ type vertexResponse struct {
 }
 
 func (a *VertexAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Result, error) {
-	data, err := os.ReadFile(event.FilePath)
+	// 1. Check file size
+	fileInfo, err := os.Stat(event.FilePath)
 	if err != nil {
-		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("failed to read video file: %w", err))
+		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("failed to stat file: %w", err))
 	}
 
-	// Dynamic prompt adjustment based on zone
-	prompt := fmt.Sprintf("Analyze this video from zone '%s'. Detect any of these objects: %s.", 
+	if a.cfg.MaxArtifactSize > 0 && fileInfo.Size() > a.cfg.MaxArtifactSize {
+		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("file size %d exceeds maximum allowed size %d", fileInfo.Size(), a.cfg.MaxArtifactSize))
+	}
+
+	// 2. Detect MIME Type
+	mimeType := a.detectMIMEType(event.FilePath)
+	a.logger.Debug("Detected artifact type", zap.String("mime_type", mimeType), zap.String("path", event.FilePath))
+
+	// 3. Read file into memory (Inline Data)
+	data, err := os.ReadFile(event.FilePath)
+	if err != nil {
+		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("failed to read file: %w", err))
+	}
+
+	// 4. Generate Content
+	prompt := fmt.Sprintf("Analyze this artifact from zone '%s'. Detect any of these objects: %s.", 
 		event.Zone, strings.Join(a.cfg.TargetObjects, ", "))
 
-	systemInstruction := fmt.Sprintf(`You are a security video analyst. 
-Analyze the provided video clip for security threats in the zone: %s.
+	systemInstruction := fmt.Sprintf(`You are a security analyst. 
+Analyze the provided media for security threats in the zone: %s.
 Search specifically for: %s.
 You MUST return a valid JSON object with the following structure:
 {
@@ -70,7 +87,7 @@ You MUST return a valid JSON object with the following structure:
 			Parts: []*genai.Part{
 				{
 					InlineData: &genai.Blob{
-						MIMEType: "video/mp4",
+						MIMEType: mimeType,
 						Data:     data,
 					},
 				},
@@ -119,4 +136,36 @@ You MUST return a valid JSON object with the following structure:
 		Labels:     vResp.Labels,
 		DetectedAt: event.Timestamp.Unix(),
 	}, nil
+}
+
+func (a *VertexAnalyzer) detectMIMEType(filePath string) string {
+	// First, try to detect by sniffing the first 512 bytes
+	f, err := os.Open(filePath)
+	if err == nil {
+		defer f.Close()
+		buffer := make([]byte, 512)
+		n, err := f.Read(buffer)
+		if err == nil && n > 0 {
+			contentType := http.DetectContentType(buffer[:n])
+			if contentType != "application/octet-stream" {
+				return contentType
+			}
+		}
+	}
+
+	// Fallback to extension
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	default:
+		return "video/mp4" // Default assumption
+	}
 }

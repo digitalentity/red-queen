@@ -14,6 +14,7 @@ import (
 	"redqueen/internal/zone"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
+	"github.com/google/uuid"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
 )
@@ -182,7 +183,7 @@ func (fs *ObservedFs) Stat(name string) (os.FileInfo, error) {
 
 func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	// We want to ensure unique names in the shared temp directory
-	uniqueName := fmt.Sprintf("%d-%s", os.Getpid(), filepath.Base(name))
+	uniqueName := fmt.Sprintf("%s-%s-%s", fs.ip, uuid.New().String(), filepath.Base(name))
 
 	// Open/Create the file in the base filesystem
 	f, err := fs.Fs.OpenFile(uniqueName, flag, perm)

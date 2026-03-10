@@ -55,8 +55,22 @@ zones:
 		assert.Equal(t, 2121, cfg.FTP.Port)
 	})
 
-	t.Run("Fail when file is missing", func(t *testing.T) {
-		_, err := LoadConfig("non-existent.yaml")
-		assert.Error(t, err, "LoadConfig should fail if the specified file does not exist")
+	t.Run("Load with ML config", func(t *testing.T) {
+		configContent := `
+ml:
+  provider: vertex-ai
+  max_artifact_size: 1024
+`
+		tmpFile, err := os.CreateTemp("", "mlconfig*.yaml")
+		require.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		_, _ = tmpFile.WriteString(configContent)
+		tmpFile.Close()
+
+		cfg, err := LoadConfig(tmpFile.Name())
+		require.NoError(t, err)
+
+		assert.Equal(t, "vertex-ai", cfg.ML.Provider)
+		assert.Equal(t, int64(1024), cfg.ML.MaxArtifactSize)
 	})
 }
