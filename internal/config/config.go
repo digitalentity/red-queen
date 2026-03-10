@@ -36,6 +36,9 @@ type CameraConfig struct {
 
 type MLConfig struct {
 	Provider      string   `mapstructure:"provider"`
+	ModelName     string   `mapstructure:"model_name"`
+	ProjectID     string   `mapstructure:"project_id"`
+	Location      string   `mapstructure:"location"`
 	Endpoint      string   `mapstructure:"endpoint"`
 	APIKey        string   `mapstructure:"api_key"`
 	Threshold     float64  `mapstructure:"threshold"`

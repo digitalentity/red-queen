@@ -65,6 +65,8 @@ To ensure consistency across all modules, the system uses a structured **Event**
 ### 4. ML Interface (Pluggable)
 - **Interface**: `Analyze(ctx, Event) (Result, error)`
 - **Error Handling**: Distinguishes between **Soft** (retryable) and **Hard** (fatal) failures.
+- **Implementations**:
+    - **Vertex AI (Gemini)**: Uses Google's multimodal Gemini models for advanced video understanding. It is configured via `project_id`, `location`, and `model_name`. It uses structured JSON output for reliable parsing.
 
 ### 5. Artifact Storage Interface (Pluggable)
 - **Interface**: `Save(ctx, Event) (URL, error)`

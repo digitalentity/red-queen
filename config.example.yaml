@@ -24,11 +24,12 @@ zones:
 
 # Video Processing & ML Module
 ml:
-  provider: "openai-clip" # Options: mock, local-tflite, cloud-api
-  endpoint: "http://localhost:8080/analyze"
-  api_key: ""
+  provider: "vertex-ai" # Options: mock, vertex-ai
+  model_name: "gemini-1.5-flash"
+  project_id: "your-project-id"
+  location: "us-central1"
   threshold: 0.85 # Confidence threshold for flagging threats
-  target_objects: ["person", "car", "weapon"]
+  target_objects: ["person", "unauthorized vehicle", "weapon", "aggressive behavior"]
 
 # Artifact Storage Module (Permanent)
 storage:

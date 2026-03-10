@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -39,7 +40,20 @@ func main() {
 	zoneManager := zone.NewManager(cfg.Zones)
 	
 	// Initialize Analysis
-	analyzer := &ml.MockAnalyzer{}
+	var analyzer ml.Analyzer
+	switch cfg.ML.Provider {
+	case "vertex-ai":
+		vAnalyzer, err := ml.NewVertexAnalyzer(context.Background(), logger, cfg.ML)
+		if err != nil {
+			logger.Fatal("Failed to initialize Vertex AI analyzer", zap.Error(err))
+		}
+		defer vAnalyzer.Close()
+		analyzer = vAnalyzer
+		logger.Info("Using Vertex AI analyzer", zap.String("model", cfg.ML.ModelName))
+	default:
+		logger.Warn("Unknown or no ML provider configured, using mock")
+		analyzer = &ml.MockAnalyzer{}
+	}
 
 	// Initialize Storage
 	var storageProvider storage.Provider
