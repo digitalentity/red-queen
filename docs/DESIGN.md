@@ -79,6 +79,7 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Responsibility**: Delivers contextual alerts to external channels.
 - **Implementations**:
     - **Webhook Notifier**: Sends a JSON POST request with event details and a link to the stored artifact.
+    - **Homey Notifier**: Supports both Homey Cloud and Homey Pro (Local). It triggers flows with a custom tag containing the alert message and artifact URL.
 
 ### 7. REST API Server
 - **Responsibility**: Serves stored artifacts and provides health monitoring.

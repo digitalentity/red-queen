@@ -77,6 +77,9 @@ func main() {
 		case "webhook":
 			notifiers = append(notifiers, notify.NewWebhookNotifier(ncfg))
 			logger.Info("Enabled webhook notifier", zap.String("url", ncfg.URL))
+		case "homey":
+			notifiers = append(notifiers, notify.NewHomeyNotifier(ncfg))
+			logger.Info("Enabled Homey notifier", zap.String("homey_id", ncfg.HomeyID), zap.String("event", ncfg.Event))
 		default:
 			logger.Warn("Unknown notifier type", zap.String("type", ncfg.Type))
 		}

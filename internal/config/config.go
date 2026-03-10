@@ -68,6 +68,8 @@ type NotifyConfig struct {
 	URL     string `mapstructure:"url"`     // Used by Webhook
 	Channel string `mapstructure:"channel"` // Used by Slack
 	Token   string `mapstructure:"token"`   // Used by Slack
+	HomeyID string `mapstructure:"homey_id"` // Used by Homey
+	Event   string `mapstructure:"event"`    // Used by Homey
 }
 
 type APIConfig struct {

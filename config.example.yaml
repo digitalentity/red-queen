@@ -47,6 +47,14 @@ notifications:
   - type: "webhook"
     enabled: true
     url: "https://discord.com/api/webhooks/..."
+  - type: "homey" # Homey Cloud
+    enabled: false
+    homey_id: "your-homey-id"
+    event: "threat_detected"
+  - type: "homey" # Homey Pro Local
+    enabled: false
+    url: "http://192.168.1.50"
+    event: "threat_detected"
   - type: "slack"
     enabled: false
     channel: "#security-alerts"

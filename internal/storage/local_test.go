@@ -63,8 +63,8 @@ func TestLocalStorage_Save(t *testing.T) {
 	
 	assert.FileExists(t, expectedPath)
 	
-	// Verify source file is gone
-	assert.NoFileExists(t, sourceFilePath)
+	// Verify source file still exists (it's a copy now, not a move)
+	assert.FileExists(t, sourceFilePath)
 
 	// Verify content
 	savedContent, err := os.ReadFile(expectedPath)
