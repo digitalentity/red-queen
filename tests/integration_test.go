@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -18,16 +19,36 @@ import (
 )
 
 func TestFullSystemIntegration(t *testing.T) {
-	// Create isolated temporary directories for this test run
-	tmpDir, err := os.MkdirTemp("", "rq-test-tmp-*")
+	// Create a parent temp directory for all test assets
+	testParentDir, err := os.MkdirTemp("", "redqueen-integration-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(testParentDir)
 
-	storageDir, err := os.MkdirTemp("", "rq-test-storage-*")
+	// Sub-directories for different concerns
+	tmpDir := filepath.Join(testParentDir, "uploads")
+	storageDir := filepath.Join(testParentDir, "storage")
+	require.NoError(t, os.Mkdir(tmpDir, 0755))
+	require.NoError(t, os.Mkdir(storageDir, 0755))
+
+	// 1. Generate a temporary config file from template
+	configPath := filepath.Join(testParentDir, "config.yaml")
+	tmpl, err := template.ParseFiles("config.test.yaml.tmpl")
 	require.NoError(t, err)
-	defer os.RemoveAll(storageDir)
 
-	// 1. Start Mock Webhook Receiver
+	f, err := os.Create(configPath)
+	require.NoError(t, err)
+	
+	err = tmpl.Execute(f, struct {
+		TempDir    string
+		StorageDir string
+	}{
+		TempDir:    tmpDir,
+		StorageDir: storageDir,
+	})
+	require.NoError(t, err)
+	f.Close()
+
+	// 2. Start Mock Webhook Receiver
 	webhookChan := make(chan map[string]interface{}, 1)
 	webhookServer := &http.Server{
 		Addr: ":9999",
@@ -42,15 +63,16 @@ func TestFullSystemIntegration(t *testing.T) {
 	go webhookServer.ListenAndServe()
 	defer webhookServer.Close()
 
-	// 2. Start Red Queen in the background
-	// We override temp and storage dirs via environment variables
-	cmd := exec.Command("./red-queen")
-	cmd.Dir = ".."
+	// 3. Start Red Queen in the background
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	binaryPath := filepath.Join(root, "red-queen")
+
+	cmd := exec.Command(binaryPath)
+	cmd.Dir = testParentDir // Run from the temp directory
 	cmd.Env = append(os.Environ(), 
-		"RED_QUEEN_CONFIG=config.test.yaml", 
+		"RED_QUEEN_CONFIG="+configPath, 
 		"RED_QUEEN_MOCK_THREAT=true",
-		"RED_QUEEN_FTP_TEMP_DIR="+tmpDir,
-		"RED_QUEEN_STORAGE_LOCAL_ROOT_PATH="+storageDir,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -64,16 +86,16 @@ func TestFullSystemIntegration(t *testing.T) {
 	// Wait for services to start
 	time.Sleep(2 * time.Second)
 
-	// 3. Upload a file via FTP using curl
-	testFile := "camera_clip.mp4"
-	require.NoError(t, os.WriteFile(testFile, []byte("fake video content"), 0644))
-	defer os.Remove(testFile)
+	// 4. Create and upload a file via FTP using curl
+	testFileName := "camera_clip.mp4"
+	testFilePath := filepath.Join(testParentDir, testFileName)
+	require.NoError(t, os.WriteFile(testFilePath, []byte("fake video content"), 0644))
 
-	curlCmd := exec.Command("curl", "-s", "--user", "testuser:testpassword", "-T", testFile, "ftp://127.0.0.1:2121/")
+	curlCmd := exec.Command("curl", "-s", "--user", "testuser:testpassword", "-T", testFilePath, "ftp://127.0.0.1:2121/")
 	out, err := curlCmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 
-	// 4. Wait for Webhook
+	// 5. Wait for Webhook
 	select {
 	case payload := <-webhookChan:
 		t.Logf("Received webhook: %+v", payload)
@@ -84,14 +106,14 @@ func TestFullSystemIntegration(t *testing.T) {
 		artifactURL := payload["artifact_url"].(string)
 		assert.NotEmpty(t, artifactURL)
 
-		// 5. Verify file in storage (using the guaranteed temp storageDir)
+		// 6. Verify file in storage
 		today := time.Now().Format("2006-01-02")
 		expectedDir := filepath.Join(storageDir, today, "TestZone")
 		files, err := os.ReadDir(expectedDir)
 		require.NoError(t, err)
 		assert.NotEmpty(t, files, "Should find at least one file in storage")
 
-		// 6. Verify accessibility via REST API
+		// 7. Verify accessibility via REST API
 		apiURL := fmt.Sprintf("http://127.0.0.1:8080%s", artifactURL)
 		t.Logf("Checking API at: %s", apiURL)
 		

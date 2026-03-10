@@ -1,0 +1,33 @@
+log_level: debug
+concurrency: 2
+
+ftp:
+  listen_address: "127.0.0.1"
+  port: 2121
+  user: "testuser"
+  password: "testpassword"
+  temp_dir: "{{.TempDir}}"
+
+zones:
+  - name: "TestZone"
+    cameras:
+      - ip: "127.0.0.1"
+
+ml:
+  provider: "mock"
+  threshold: 0.5
+  target_objects: ["person"]
+
+storage:
+  provider: "local"
+  local:
+    root_path: "{{.StorageDir}}"
+
+notifications:
+  - type: "webhook"
+    enabled: true
+    url: "http://127.0.0.1:9999/webhook"
+
+api:
+  port: 8080
+  enabled: true
