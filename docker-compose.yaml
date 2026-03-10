@@ -1,0 +1,17 @@
+services:
+  red-queen:
+    build: .
+    container_name: red-queen
+    restart: unless-stopped
+    ports:
+      - "2121:2121" # FTP
+      - "8080:8080" # REST API
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - ./data/uploads:/data/uploads
+      - ./data/storage:/data/storage
+    environment:
+      - RED_QUEEN_CONFIG=/config/config.yaml
+      - RED_QUEEN_LOG_LEVEL=info
+      # Vertex AI credentials should be provided via a mounted volume or secret
+      # - GOOGLE_APPLICATION_CREDENTIALS=/config/gcp-creds.json

@@ -89,6 +89,28 @@ To ensure consistency across all modules, the system uses a structured **Event**
 
 ---
 
+## Deployment
+
+### Docker
+The system can be deployed using Docker for consistent environments across local and cloud servers.
+
+1. **Build the image**:
+   ```bash
+   docker build -t red-queen .
+   ```
+
+2. **Run with Docker Compose**:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Volumes**:
+   - `/config`: Mount your `config.yaml` here.
+   - `/data/uploads`: Temporary directory for FTP uploads.
+   - `/data/storage`: Permanent archive for threat artifacts.
+
+---
+
 ## Data Flow Diagram
 
 ```mermaid
