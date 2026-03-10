@@ -13,6 +13,7 @@ import (
 	"redqueen/internal/notify"
 	"redqueen/internal/storage"
 	"redqueen/internal/zone"
+	"redqueen/pkg/api"
 
 	"go.uber.org/zap"
 )
@@ -67,7 +68,15 @@ func main() {
 		}
 	}()
 
-	// 6. Graceful Shutdown
+	// 6. Initialize & Start REST API
+	apiServer := api.NewServer(logger, cfg.API, cfg.Storage.Local)
+	go func() {
+		if err := apiServer.Start(); err != nil {
+			logger.Fatal("REST API failed", zap.Error(err))
+		}
+	}()
+
+	// 7. Graceful Shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
@@ -76,6 +85,10 @@ func main() {
 
 	if err := ftpServer.Stop(); err != nil {
 		logger.Error("Error during FTP server shutdown", zap.Error(err))
+	}
+
+	if err := apiServer.Stop(); err != nil {
+		logger.Error("Error during API server shutdown", zap.Error(err))
 	}
 
 	logger.Info("Shutdown complete")

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,14 +51,16 @@ func TestLocalStorage_Save(t *testing.T) {
 
 	// Verify the result
 	assert.NotEmpty(t, resultPath)
-	assert.True(t, filepath.IsAbs(resultPath))
+	
+	// Verify result path is the relative URL
+	expectedURL := fmt.Sprintf("/artifacts/%s/front-gate/test-uuid_%s", now.Format("2006-01-02"), sourceFileName)
+	assert.Equal(t, expectedURL, resultPath)
 
 	// Verify file was moved to the correct location
 	// Expected: destDir/YYYY-MM-DD/zone/ID_filename
 	expectedDir := filepath.Join(destDir, now.Format("2006-01-02"), "front-gate")
 	expectedPath := filepath.Join(expectedDir, "test-uuid_"+sourceFileName)
 	
-	assert.Equal(t, expectedPath, resultPath)
 	assert.FileExists(t, expectedPath)
 	
 	// Verify source file is gone

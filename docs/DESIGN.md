@@ -76,6 +76,12 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Interface**: `Send(ctx, Event, Result, URL) error`
 - **Responsibility**: Delivers contextual alerts to external channels.
 
+### 7. REST API Server
+- **Responsibility**: Serves stored artifacts and provides health monitoring.
+- **Endpoints**:
+    - `/artifacts/{date}/{zone}/{filename}`: Serves recorded threat artifacts from local storage.
+    - `/health`: Simple health check endpoint.
+
 ---
 
 ## Data Flow Diagram

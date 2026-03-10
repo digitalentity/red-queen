@@ -49,13 +49,9 @@ func (s *LocalStorage) Save(ctx context.Context, event *models.Event) (string, e
 		}
 	}
 
-	// 3. Return absolute path
-	absPath, err := filepath.Abs(destPath)
-	if err != nil {
-		return destPath, nil // Return relative path if Abs fails
-	}
-
-	return absPath, nil
+	// 3. Return a relative URL for the API
+	// The pattern is: /artifacts/{dateDir}/{zone}/{eventID_filename}
+	return fmt.Sprintf("/artifacts/%s/%s/%s_%s", dateDir, event.Zone, event.ID, fileName), nil
 }
 
 func (s *LocalStorage) copyFile(src, dst string) error {
