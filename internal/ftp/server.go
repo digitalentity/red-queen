@@ -135,16 +135,23 @@ type ObservedFs struct {
 }
 
 func (fs *ObservedFs) Create(name string) (afero.File, error) {
+	return fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+}
+
+func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	// We want to ensure unique names in the shared temp directory
 	uniqueName := fmt.Sprintf("%d-%s", os.Getpid(), filepath.Base(name))
-	
-	// Create the file in the base filesystem (which is d.config.TempDir)
-	f, err := fs.Fs.Create(uniqueName)
+
+	// Open/Create the file in the base filesystem
+	f, err := fs.Fs.OpenFile(uniqueName, flag, perm)
 	if err != nil {
 		return nil, err
 	}
 
 	fullPath := filepath.Join(fs.tempDir, uniqueName)
+
+	// We only want to trigger processing for files that were opened for writing
+	isWrite := flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE) != 0
 
 	return &ObservedFile{
 		File:        f,
@@ -152,6 +159,7 @@ func (fs *ObservedFs) Create(name string) (afero.File, error) {
 		coordinator: fs.coordinator,
 		ip:          fs.ip,
 		zone:        fs.zone,
+		isWrite:     isWrite,
 	}, nil
 }
 
@@ -161,11 +169,12 @@ type ObservedFile struct {
 	coordinator *coordinator.Coordinator
 	ip          string
 	zone        string
+	isWrite     bool
 }
 
 func (f *ObservedFile) Close() error {
 	err := f.File.Close()
-	if err == nil {
+	if err == nil && f.isWrite {
 		// Trigger analysis
 		go f.coordinator.Process(context.Background(), f.fullPath, f.ip, f.zone)
 	}

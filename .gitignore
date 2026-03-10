@@ -19,3 +19,6 @@ Thumbs.db
 # Project specific
 /config.yaml
 /tmp/
+/test_tmp/
+/test_storage/
+config.test.yaml

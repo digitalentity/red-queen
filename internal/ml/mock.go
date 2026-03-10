@@ -2,6 +2,7 @@ package ml
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"redqueen/internal/models"
@@ -15,11 +16,18 @@ func (m *MockAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Resul
 	if m.AnalyzeFunc != nil {
 		return m.AnalyzeFunc(ctx, event)
 	}
-	// Default: No threat
+
+	// For testing purposes, allow triggering a threat via env var
+	isThreat := os.Getenv("RED_QUEEN_MOCK_THREAT") == "true"
+	labels := []string{"clear"}
+	if isThreat {
+		labels = []string{"person", "weapon"}
+	}
+
 	return &Result{
-		IsThreat:   false,
+		IsThreat:   isThreat,
 		Confidence: 0.99,
-		Labels:     []string{"clear"},
+		Labels:     labels,
 		DetectedAt: time.Now().Unix(),
 	}, nil
 }

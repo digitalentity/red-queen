@@ -9,6 +9,9 @@ build:
 test:
 	go test ./...
 
+integration-test: build
+	go test -v -tags=integration ./tests/...
+
 clean:
 	rm -f $(BINARY_NAME)
 

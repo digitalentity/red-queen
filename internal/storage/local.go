@@ -34,19 +34,9 @@ func (s *LocalStorage) Save(ctx context.Context, event *models.Event) (string, e
 	fileName := filepath.Base(event.FilePath)
 	destPath := filepath.Join(destDir, fmt.Sprintf("%s_%s", event.ID, fileName))
 
-	// 2. Move the file
-	// We try os.Rename first (fast if on same partition)
-	err := os.Rename(event.FilePath, destPath)
-	if err != nil {
-		// Fallback to copy and delete if Rename fails (e.g., across partitions)
-		if err := s.copyFile(event.FilePath, destPath); err != nil {
-			return "", fmt.Errorf("failed to copy file to local storage: %w", err)
-		}
-		if err := os.Remove(event.FilePath); err != nil {
-			// Log but don't fail, as the file is safely in permanent storage
-			// However, in this system, we want to know if cleanup fails.
-			return destPath, fmt.Errorf("failed to remove source file after copy: %w", err)
-		}
+	// 2. Copy the file (Always copy, never move, to keep storage provider generic)
+	if err := s.copyFile(event.FilePath, destPath); err != nil {
+		return "", fmt.Errorf("failed to copy file to local storage: %w", err)
 	}
 
 	// 3. Return a relative URL for the API

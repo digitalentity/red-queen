@@ -58,7 +58,7 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	// Ensure cleanup at the end
 	defer func() {
-		if err := os.Remove(event.FilePath); err != nil {
+		if err := os.Remove(event.FilePath); err != nil && !os.IsNotExist(err) {
 			log.Error("Failed to cleanup ephemeral file", zap.Error(err), zap.String("path", event.FilePath))
 		} else {
 			log.Debug("Ephemeral file cleaned up")
