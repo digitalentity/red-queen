@@ -1,0 +1,57 @@
+# Red Queen Configuration Example
+
+# Global Settings
+log_level: info
+concurrency: 10 # Number of simultaneous analysis tasks
+
+# FTP Ingestion Service
+ftp:
+  listen_address: "0.0.0.0"
+  port: 2121
+  user: "camera_user"
+  password: "secure_password" # Can be overridden by RED_QUEEN_FTP_PASSWORD
+  temp_dir: "/tmp/red-queen-uploads"
+
+# Zone Manager: Registration of Cameras by IP
+zones:
+  - name: "Main Entrance"
+    cameras:
+      - ip: "192.168.1.10"
+      - ip: "192.168.1.11"
+  - name: "Back Yard"
+    cameras:
+      - ip: "192.168.1.20"
+
+# Video Processing & ML Module
+ml:
+  provider: "openai-clip" # Options: mock, local-tflite, cloud-api
+  endpoint: "http://localhost:8080/analyze"
+  api_key: ""
+  threshold: 0.85 # Confidence threshold for flagging threats
+  target_objects: ["person", "car", "weapon"]
+
+# Artifact Storage Module (Permanent)
+storage:
+  provider: "local" # Options: local, s3, gcs
+  local:
+    root_path: "/var/lib/red-queen/storage"
+  s3:
+    bucket: "red-queen-artifacts"
+    region: "us-east-1"
+    access_key: ""
+    secret_key: ""
+
+# Notification Module
+notifications:
+  - type: "webhook"
+    enabled: true
+    url: "https://discord.com/api/webhooks/..."
+  - type: "slack"
+    enabled: false
+    channel: "#security-alerts"
+    token: "xoxb-..."
+
+# Future: Zone State REST API
+api:
+  port: 8080
+  enabled: true
