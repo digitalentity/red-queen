@@ -53,7 +53,25 @@ func main() {
 	}
 
 	// Initialize Notifications
-	notifiers := []notify.Notifier{&notify.MockNotifier{}}
+	var notifiers []notify.Notifier
+	for _, ncfg := range cfg.Notifications {
+		if !ncfg.Enabled {
+			continue
+		}
+
+		switch ncfg.Type {
+		case "webhook":
+			notifiers = append(notifiers, notify.NewWebhookNotifier(ncfg))
+			logger.Info("Enabled webhook notifier", zap.String("url", ncfg.URL))
+		default:
+			logger.Warn("Unknown notifier type", zap.String("type", ncfg.Type))
+		}
+	}
+
+	if len(notifiers) == 0 {
+		logger.Warn("No notifiers enabled, using mock")
+		notifiers = append(notifiers, &notify.MockNotifier{})
+	}
 
 	// 4. Initialize Coordinator
 	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers)

@@ -75,6 +75,8 @@ To ensure consistency across all modules, the system uses a structured **Event**
 ### 6. Notification Interface (Pluggable)
 - **Interface**: `Send(ctx, Event, Result, URL) error`
 - **Responsibility**: Delivers contextual alerts to external channels.
+- **Implementations**:
+    - **Webhook Notifier**: Sends a JSON POST request with event details and a link to the stored artifact.
 
 ### 7. REST API Server
 - **Responsibility**: Serves stored artifacts and provides health monitoring.
