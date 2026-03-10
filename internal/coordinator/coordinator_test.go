@@ -33,7 +33,7 @@ func TestCoordinator_Process_Threat(t *testing.T) {
 	store := &storage.MockProvider{}
 	notifier := &notify.MockNotifier{}
 
-	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false)
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false, 1)
 
 	ctx := context.Background()
 	c.Process(ctx, tmpFile.Name(), "1.2.3.4", "Main Gate")
@@ -62,7 +62,7 @@ func TestCoordinator_Process_NoThreat(t *testing.T) {
 	store := &storage.MockProvider{}
 	notifier := &notify.MockNotifier{}
 
-	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false)
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false, 1)
 	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Safe Zone")
 
 	assert.Len(t, store.SavedEvents, 0)
@@ -89,7 +89,7 @@ func TestCoordinator_Process_SoftFailureRetry(t *testing.T) {
 	store := &storage.MockProvider{}
 	notifier := &notify.MockNotifier{}
 
-	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false)
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, false, 1)
 	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Retry Zone")
 
 	assert.Equal(t, int32(3), calls.Load(), "Should have retried 3 times")
@@ -108,7 +108,7 @@ func TestCoordinator_Process_RetainFiles(t *testing.T) {
 	notifier := &notify.MockNotifier{}
 
 	// Create coordinator with retainFiles = true
-	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, true)
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, true, 1)
 	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Retain Zone")
 
 	// File should NOT be deleted

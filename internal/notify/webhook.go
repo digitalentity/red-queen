@@ -14,12 +14,16 @@ import (
 )
 
 type WebhookNotifier struct {
-	cfg config.NotifyConfig
+	cfg    config.NotifyConfig
+	client *http.Client
 }
 
 func NewWebhookNotifier(cfg config.NotifyConfig) *WebhookNotifier {
 	return &WebhookNotifier{
 		cfg: cfg,
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+		},
 	}
 }
 
@@ -58,11 +62,7 @@ func (n *WebhookNotifier) Send(ctx context.Context, event *models.Event, result 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "RedQueen/1.0")
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("webhook delivery failed: %w", err)
 	}

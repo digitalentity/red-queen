@@ -19,3 +19,7 @@ func (a *PassThroughAnalyzer) Analyze(ctx context.Context, event *models.Event) 
 		DetectedAt: time.Now().Unix(),
 	}, nil
 }
+
+func (a *PassThroughAnalyzer) Name() string {
+	return "passthrough"
+}

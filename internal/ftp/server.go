@@ -20,6 +20,7 @@ import (
 )
 
 type Server struct {
+	ctx         context.Context
 	logger      *zap.Logger
 	config      config.FTPConfig
 	coordinator *coordinator.Coordinator
@@ -28,12 +29,14 @@ type Server struct {
 }
 
 func NewServer(
+	ctx context.Context,
 	logger *zap.Logger,
 	cfg config.FTPConfig,
 	coord *coordinator.Coordinator,
 	zm zone.Manager,
 ) *Server {
 	return &Server{
+		ctx:         ctx,
 		logger:      logger,
 		config:      cfg,
 		coordinator: coord,
@@ -43,6 +46,7 @@ func NewServer(
 
 func (s *Server) Start() error {
 	driver := &MainDriver{
+		ctx:         s.ctx,
 		logger:      s.logger,
 		config:      s.config,
 		coordinator: s.coordinator,
@@ -64,6 +68,7 @@ func (s *Server) Stop() error {
 
 // MainDriver implements ftpserver.MainDriver
 type MainDriver struct {
+	ctx         context.Context
 	logger      *zap.Logger
 	config      config.FTPConfig
 	coordinator *coordinator.Coordinator
@@ -119,6 +124,7 @@ func (d *MainDriver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ft
 
 	return &ObservedFs{
 		Fs:          baseFs,
+		ctx:         d.ctx,
 		logger:      d.logger,
 		coordinator: d.coordinator,
 		ip:          ipStr,
@@ -135,6 +141,7 @@ func (d *MainDriver) GetTLSConfig() (*tls.Config, error) {
 // It implements ftpserver.ClientDriver because it embeds afero.Fs
 type ObservedFs struct {
 	afero.Fs
+	ctx         context.Context
 	logger      *zap.Logger
 	coordinator *coordinator.Coordinator
 	ip          string
@@ -205,6 +212,7 @@ func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.F
 
 	return &ObservedFile{
 		File:        f,
+		ctx:         fs.ctx,
 		fullPath:    fullPath,
 		coordinator: fs.coordinator,
 		logger:      fs.logger,
@@ -216,6 +224,7 @@ func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.F
 
 type ObservedFile struct {
 	afero.File
+	ctx         context.Context
 	fullPath    string
 	coordinator *coordinator.Coordinator
 	logger      *zap.Logger
@@ -233,7 +242,7 @@ func (f *ObservedFile) Close() error {
 			zap.String("zone", f.zone),
 		)
 		// Trigger analysis
-		go f.coordinator.Process(context.Background(), f.fullPath, f.ip, f.zone)
+		go f.coordinator.Process(f.ctx, f.fullPath, f.ip, f.zone)
 	}
 	return err
 }

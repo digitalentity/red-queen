@@ -15,6 +15,7 @@ type Result struct {
 
 type Analyzer interface {
 	Analyze(ctx context.Context, event *models.Event) (*Result, error)
+	Name() string
 }
 
 type ErrorType int

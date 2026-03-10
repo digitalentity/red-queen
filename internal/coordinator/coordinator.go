@@ -23,6 +23,7 @@ type Coordinator struct {
 	storage     storage.Provider
 	notifiers   []notify.Notifier
 	retainFiles bool
+	sem         chan struct{}
 }
 
 // NewCoordinator creates a new instance of the Coordinator.
@@ -32,18 +33,33 @@ func NewCoordinator(
 	storage storage.Provider,
 	notifiers []notify.Notifier,
 	retainFiles bool,
+	concurrency int,
 ) *Coordinator {
+	if concurrency <= 0 {
+		concurrency = 1
+	}
 	return &Coordinator{
 		logger:      logger,
 		analyzer:    analyzer,
 		storage:     storage,
 		notifiers:   notifiers,
 		retainFiles: retainFiles,
+		sem:         make(chan struct{}, concurrency),
 	}
 }
 
 // Process handles a new file upload by creating an event and running the analysis pipeline.
 func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
+	// Acquire semaphore
+	select {
+	case c.sem <- struct{}{}:
+		defer func() { <-c.sem }()
+	case <-ctx.Done():
+		c.logger.Warn("Context cancelled before process started", zap.String("path", filePath))
+		os.Remove(filePath)
+		return
+	}
+
 	startTime := time.Now()
 	event := &models.Event{
 		ID:        uuid.New().String(),
@@ -77,8 +93,9 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	// 1. Analyze with Retry Logic
 	mlStart := time.Now()
+	analyzerName := c.analyzer.Name()
 	result, err := c.analyzeWithRetry(ctx, event, log)
-	metrics.MLAnalysisDuration.WithLabelValues("vertex-ai", event.Zone).Observe(time.Since(mlStart).Seconds())
+	metrics.MLAnalysisDuration.WithLabelValues(analyzerName, event.Zone).Observe(time.Since(mlStart).Seconds())
 
 	if err != nil {
 		log.Error("Analysis failed after retries or encountered hard failure", zap.Error(err))
@@ -139,9 +156,9 @@ func (c *Coordinator) analyzeWithRetry(ctx context.Context, event *models.Event,
 			return err
 		}
 
-		// Default to permanent failure for unknown errors to be safe, 
-		// or change to retryable if that's the preferred default.
-		return backoff.Permanent(err)
+		// Unknown errors (network, etc) should be retried by default
+		log.Warn("Unknown error in ML analysis, retrying...", zap.Error(err))
+		return err
 	}
 
 	// Exponential backoff configuration

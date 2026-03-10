@@ -17,6 +17,7 @@ const HomeyCloudBaseURL = "https://webhook.homey.app"
 type HomeyNotifier struct {
 	cfg     config.NotifyConfig
 	baseURL string // For testing
+	client  *http.Client
 }
 
 func NewHomeyNotifier(cfg config.NotifyConfig) *HomeyNotifier {
@@ -27,6 +28,9 @@ func NewHomeyNotifier(cfg config.NotifyConfig) *HomeyNotifier {
 	return &HomeyNotifier{
 		cfg:     cfg,
 		baseURL: baseURL,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -64,11 +68,7 @@ func (n *HomeyNotifier) Send(ctx context.Context, event *models.Event, result *m
 		return fmt.Errorf("failed to create Homey request: %w", err)
 	}
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("Homey delivery failed: %w", err)
 	}

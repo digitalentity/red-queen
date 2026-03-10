@@ -97,11 +97,18 @@ func main() {
 		notifiers = append(notifiers, &notify.MockNotifier{})
 	}
 
+	// 7. Graceful Shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
 	// 4. Initialize Coordinator
-	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, cfg.FTP.RetainFiles)
+	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, cfg.FTP.RetainFiles, cfg.Concurrency)
 
 	// 5. Initialize & Start FTP Server
-	ftpServer := ftp.NewServer(logger, cfg.FTP, orchestrator, zoneManager)
+	ftpServer := ftp.NewServer(ctx, logger, cfg.FTP, orchestrator, zoneManager)
 
 	// Start server in a goroutine
 	go func() {
@@ -118,12 +125,9 @@ func main() {
 		}
 	}()
 
-	// 7. Graceful Shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-
 	<-stop
 	logger.Info("Shutting down Red Queen...")
+	cancel() // Signal all background tasks to stop
 
 	if err := ftpServer.Stop(); err != nil {
 		logger.Error("Error during FTP server shutdown", zap.Error(err))

@@ -47,14 +47,19 @@ type vertexResponse struct {
 }
 
 func (a *VertexAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Result, error) {
-	// 1. Check file size
+	// 1. Check file size before reading to avoid OOM
 	fileInfo, err := os.Stat(event.FilePath)
 	if err != nil {
 		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("failed to stat file: %w", err))
 	}
 
-	if a.cfg.MaxArtifactSize > 0 && fileInfo.Size() > a.cfg.MaxArtifactSize {
-		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("file size %d exceeds maximum allowed size %d", fileInfo.Size(), a.cfg.MaxArtifactSize))
+	maxSize := int64(20 * 1024 * 1024) // 20 MB default safety limit
+	if a.cfg.MaxArtifactSize > 0 {
+		maxSize = a.cfg.MaxArtifactSize
+	}
+
+	if fileInfo.Size() > maxSize {
+		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("file size %d exceeds limit of %d bytes", fileInfo.Size(), maxSize))
 	}
 
 	// 2. Detect MIME Type
@@ -168,4 +173,8 @@ func (a *VertexAnalyzer) detectMIMEType(filePath string) string {
 	default:
 		return "video/mp4" // Default assumption
 	}
+}
+
+func (a *VertexAnalyzer) Name() string {
+	return "vertex-ai"
 }

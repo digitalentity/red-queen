@@ -31,3 +31,7 @@ func (m *MockAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Resul
 		DetectedAt: time.Now().Unix(),
 	}, nil
 }
+
+func (m *MockAnalyzer) Name() string {
+	return "mock"
+}
