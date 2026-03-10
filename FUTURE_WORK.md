@@ -8,6 +8,13 @@ This document outlines planned and suggested improvements for the Red Queen Vide
 - **Motion Pre-filtering**: Implement a local, lightweight motion detection filter (e.g., using OpenCV) to avoid sending static frames to expensive Cloud ML models.
 
 ## 2. Machine Learning & Analysis
+- **ML Pre-classifier (Cost Optimization)**: Implement a lightweight, local pre-classifier to filter empty or irrelevant frames.
+    - **Recommended Models**:
+        - **YOLOv11-Nano / YOLO26-Nano**: High-speed object detection (Person, Car).
+        - **MobileNetV4**: Efficient classification for CPU-only environments.
+        - **OpenCV Background Subtraction**: Fast motion-gate to ignore static scenes.
+    - **Integration**: Use **ONNX Runtime** with Go bindings or a **TensorFlow Lite** sidecar container.
+    - **Sensitivity**: Tune for ~99% recall to ensure no potential suspects are missed while filtering out "noise" (shadows, wind, etc.).
 - **Edge ML Provider**: Implement a local provider using TensorFlow Lite or ONNX to perform analysis on-premise, reducing latency and cloud costs.
 - **Face Recognition**: Integrate a face recognition module to distinguish between "Authorized Personnel" and "Intruders."
 - **Behavioral Analysis**: Move beyond object detection to analyze behavior (e.g., a person loitering or climbing a fence).
