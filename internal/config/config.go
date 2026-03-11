@@ -66,7 +66,7 @@ type AnalyzerConfig struct {
 	// YOLO ONNX (provider: "yolo-onnx")
 	ModelPath         string        `mapstructure:"model_path"`
 	ExecutionProvider string        `mapstructure:"execution_provider"` // default: "cpu"
-	FrameInterval     time.Duration `mapstructure:"frame_interval"`     // default: 2s
+	FrameInterval     time.Duration `mapstructure:"frame_interval"`     // default: 0.25s
 
 	// Gemini AI (provider: "gemini-ai")
 	ModelName       string `mapstructure:"model_name"`

@@ -2,6 +2,7 @@ package ml
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -54,16 +55,20 @@ func (a *ChainedAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Re
 	// 4. Run Analysis Stage
 	analysisResult, err := a.analysis.Analyze(ctx, event)
 	if err != nil {
+		var aErr *AnalysisError
 		// Fail-secure: if analysis stage hard-fails but prefilter saw a threat, return prefilter result.
-		// NOTE: In a real implementation, we would use errors.As to check for ErrorHard.
-		// For now, we'll implement the logic broadly.
-		a.logger.Warn("Analysis stage failed, falling back to prefilter result",
-			zap.Error(err),
-			zap.String("prefilter", a.prefilter.Name()),
-			zap.String("analysis", a.analysis.Name()))
+		if errors.As(err, &aErr) && aErr.Type == ErrorHard {
+			a.logger.Warn("Analysis stage hard-failed, falling back to prefilter result",
+				zap.Error(err),
+				zap.String("prefilter", a.prefilter.Name()),
+				zap.String("analysis", a.analysis.Name()))
 
-		metrics.PrefilterOutcome.WithLabelValues(event.Zone, a.prefilter.Name(), "analysis-fallback").Inc()
-		return preResult, nil
+			metrics.PrefilterOutcome.WithLabelValues(event.Zone, a.prefilter.Name(), "analysis-fallback").Inc()
+			return preResult, nil
+		}
+
+		// Soft failure or unknown error: propagate so the coordinator can retry.
+		return nil, err
 	}
 
 	return analysisResult, nil

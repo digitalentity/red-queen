@@ -10,6 +10,7 @@ import (
 
 type MockAnalyzer struct {
 	AnalyzeFunc func(ctx context.Context, event *models.Event) (*Result, error)
+	NameFunc    func() string
 }
 
 func (m *MockAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Result, error) {
@@ -33,5 +34,8 @@ func (m *MockAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Resul
 }
 
 func (m *MockAnalyzer) Name() string {
+	if m.NameFunc != nil {
+		return m.NameFunc()
+	}
 	return "mock"
 }
