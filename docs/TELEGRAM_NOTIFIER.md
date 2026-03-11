@@ -34,7 +34,7 @@ sequenceDiagram
 ```
 
 ## Configuration
-The following fields will be added to the `NotifyConfig` struct in `internal/config/config.go` and supported in `config.yaml`:
+The following fields in the `NotifyConfig` struct in `internal/config/config.go` apply to the Telegram notifier:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -42,7 +42,7 @@ The following fields will be added to the `NotifyConfig` struct in `internal/con
 | `enabled` | bool | Enables the notifier. |
 | `token` | string | The Telegram Bot API token from [@BotFather](https://t.me/botfather). |
 | `chat_id` | int64 | The unique identifier for the target chat or group. |
-| `url` | string | (Optional) The public base URL of the Red Queen API for artifact links. |
+| `artifact_base_url` | string | (Optional) The public base URL of the Red Queen API for artifact links. |
 
 ### Example Configuration
 ```yaml
@@ -51,29 +51,30 @@ notifications:
     enabled: true
     token: "123456789:ABCdefGHIjklMNOpqrsTUVwxyZ"
     chat_id: -100123456789
-    url: "https://my-red-queen.example.com"
+    artifact_base_url: "https://my-red-queen.example.com"
 ```
 
 ## Implementation Details
 
 ### 1. Message Formatting
-The notifier will use `MarkdownV2` for rich text formatting.
+The notifier uses `MarkdownV2` for rich text formatting.
 - **Header**: 🚨 *Threat Detected\!*
 - **Zone**: `event.Zone`
 - **Confidence**: `result.Confidence` (formatted as percentage)
 - **Labels**: `result.Labels` (comma separated)
-- **Link**: A clickable link to the artifact if `url` is configured.
+- **Time**: `event.Timestamp` (formatted as `YYYY-MM-DD HH:MM:SS`)
+- **Link**: A clickable link to the artifact if `artifact_base_url` is configured.
 
 ### 2. Media Delivery
-Unlike the Webhook or Homey notifiers which only send a URL, the Telegram notifier will attempt to upload the actual file:
-- It will read the file from `event.FilePath` (which is guaranteed to exist until the Coordinator's `defer` block executes).
-- It will use `sendPhoto` for images and `sendVideo` for other media types.
-- The formatted message will be sent as the `caption` of the media.
+Unlike the Webhook or Homey notifiers which only send a URL, the Telegram notifier attempts to upload the actual file:
+- It reads the file from `event.FilePath` (which is guaranteed to exist until the Coordinator's `defer` block executes).
+- It uses `sendPhoto` for images (`.jpg`, `.jpeg`, `.png`, `.gif`) and `sendVideo` for video files (`.mp4`, `.mov`, `.avi`).
+- The formatted message is sent as the `caption` of the media.
 
 ### 3. Error Handling
-- **Rate Limiting**: The notifier will log 429 errors from Telegram but will not block the system.
-- **File Access**: If the local file cannot be read, it will fallback to a simple `sendMessage` call with the artifact URL (if available).
-- **Network**: Standard Go `http.Client` timeouts (10s) will be applied.
+- **Rate Limiting**: The notifier logs 429 errors from Telegram but does not block the system.
+- **File Access**: If the local file cannot be read, it falls back to a plain `sendMessage` call with the artifact URL (if available).
+- **Network**: Standard Go `http.Client` timeouts apply (configured via `http_client.timeout` in `config.yaml`, default 30s).
 
 ## Security Considerations
 - **Token Protection**: The Telegram Bot token allows full control over the bot. It must be kept secret and never checked into source control.

@@ -62,7 +62,7 @@ graph TD
     subgraph "Pluggable Backends"
         MLInterface -.->|Cloud/Local| MLModel[ML Model Provider]
         StorageInterface -.->|S3/LocalFS| StorageProvider[Storage Provider]
-        NotificationInterface -.->|Slack/Email| NotificationProvider[Notification Provider]
+        NotificationInterface -.->|Webhook/Telegram/Homey| NotificationProvider[Notification Provider]
     end
 ```
 
@@ -140,7 +140,7 @@ make integration-test   # Run end-to-end integration tests
 
 ### Adding a New Notifier
 1. Implement the `Notifier` interface in `internal/notify/`.
-2. Register the new notifier in the initialization loop within `cmd/red-queen/main.go`.
+2. Register the new notifier in the initialization loop within `internal/app/app.go`.
 3. Add any necessary configuration fields to `internal/config/config.go`.
 
 ## 📄 License

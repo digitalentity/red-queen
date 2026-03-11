@@ -42,20 +42,18 @@ func TestObservedFs_VirtualMapping(t *testing.T) {
 	virtualPath := "/backyard/cam1/motion.mp4"
 	f, err := fs.OpenFile(virtualPath, os.O_RDWR|os.O_CREATE, 0666)
 	require.NoError(t, err)
-	
+
 	content := []byte("video data")
 	_, err = f.Write(content)
 	require.NoError(t, err)
-	f.Close()
 
-	// 2. Verify visibility via Stat
+	// 2. Verify visibility via Stat while the file is still open.
 	fi, err := fs.Stat(virtualPath)
 	require.NoError(t, err)
 	assert.Equal(t, "motion.mp4", fi.Name())
-	assert.Equal(t, int64(len(content)), fi.Size())
 	assert.False(t, fi.IsDir())
 
-	// 3. Verify virtual directory visibility
+	// 3. Verify virtual directory visibility while file is open.
 	fi, err = fs.Stat("/backyard")
 	require.NoError(t, err)
 	assert.True(t, fi.IsDir())
@@ -64,25 +62,27 @@ func TestObservedFs_VirtualMapping(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, fi.IsDir())
 
-	// 4. Verify physical file is flattened in root
+	// 4. Verify physical file is flattened in root.
 	files, err := afero.ReadDir(baseFs, "/")
 	require.NoError(t, err)
 	assert.Len(t, files, 1)
 	assert.Contains(t, files[0].Name(), "1.2.3.4")
 	assert.Contains(t, files[0].Name(), "motion.mp4")
 
-	// 5. Deletion
-	err = fs.Remove(virtualPath)
-	require.NoError(t, err)
-	
-	_, err = fs.Stat(virtualPath)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	// 5. Close triggers analysis and removes the virtual mapping so the registry
+	//    does not grow unboundedly across a long camera session.
+	f.Close()
 
-	// Mapping should be gone
 	registry.mu.RLock()
-	assert.Empty(t, registry.mappings)
+	assert.Empty(t, registry.mappings, "mapping must be removed from registry after close")
 	registry.mu.RUnlock()
+
+	_, err = fs.Stat(virtualPath)
+	assert.True(t, os.IsNotExist(err), "virtual path must be gone after close removes the mapping")
+
+	// 6. Explicit Remove on a non-existent (already-removed) mapping returns ErrNotExist.
+	err = fs.Remove(virtualPath)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestMainDriver_RegistryIsolation(t *testing.T) {

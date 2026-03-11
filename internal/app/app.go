@@ -32,6 +32,10 @@ type App struct {
 
 // New creates and initializes a new App instance.
 func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// 0. Initialize Shared HTTP Client
@@ -74,12 +78,8 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 		artifactHandler = http.FileServer(http.Dir(cfg.Storage.Local.RootPath))
 		logger.Info("Using local storage", zap.String("root_path", cfg.Storage.Local.RootPath))
 	case "s3":
-		// storageProvider = storage.NewS3Storage(cfg.Storage.S3)
-		logger.Warn("S3 storage provider not yet implemented, using mock")
-		storageProvider = &storage.MockProvider{}
-		artifactHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "S3 artifact serving not yet implemented", http.StatusNotImplemented)
-		})
+		cancel()
+		return nil, fmt.Errorf("S3 storage provider is not yet implemented; use 'local' or remove the storage.provider setting")
 	default:
 		logger.Warn("Unknown or no storage provider configured, using mock")
 		storageProvider = &storage.MockProvider{}
@@ -169,9 +169,14 @@ func (a *App) Stop() error {
 	a.cancel()
 
 	var errs []error
+
+	// Stop the FTP server first so no new uploads are accepted.
 	if err := a.ftpServer.Stop(); err != nil {
 		errs = append(errs, fmt.Errorf("error during FTP server shutdown: %w", err))
 	}
+
+	// Wait for all in-flight analysis goroutines to finish before stopping the API.
+	a.coordinator.Wait()
 
 	if err := a.apiServer.Stop(); err != nil {
 		errs = append(errs, fmt.Errorf("error during API server shutdown: %w", err))

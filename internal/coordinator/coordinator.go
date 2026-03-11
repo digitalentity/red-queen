@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -37,6 +38,7 @@ type Coordinator struct {
 	notifiers []notify.Notifier
 	config    CoordinatorConfig
 	sem       chan struct{}
+	wg        sync.WaitGroup
 }
 
 // NewCoordinator creates a new instance of the Coordinator.
@@ -63,15 +65,26 @@ func NewCoordinator(
 	}
 }
 
+// Wait blocks until all in-flight Process calls have completed. Call this during
+// shutdown after stopping the source of new events (e.g. the FTP server).
+func (c *Coordinator) Wait() {
+	c.wg.Wait()
+}
+
 // Process handles a new file upload by creating an event and running the analysis pipeline.
 func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
+	c.wg.Add(1)
+	defer c.wg.Done()
+
 	// Acquire semaphore
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
 	case <-ctx.Done():
 		c.logger.Warn("Context cancelled before process started", zap.String("path", filePath))
-		os.Remove(filePath)
+		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+			c.logger.Error("Failed to cleanup file on context cancellation", zap.Error(err), zap.String("path", filePath))
+		}
 		return
 	}
 
@@ -142,16 +155,23 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 		metrics.StorageOperations.WithLabelValues(storageType, "success").Inc()
 	}
 
-	// 4. Notify
+	// 4. Notify all configured notifiers concurrently.
+	var notifyWg sync.WaitGroup
 	for _, n := range c.notifiers {
-		notifierType := n.Type()
-		if err := n.Send(processCtx, event, result, artifactURL); err != nil {
-			log.Error("Notification failed", zap.Error(err), zap.String("notifier_type", notifierType))
-			metrics.NotificationsSent.WithLabelValues(notifierType, "error").Inc()
-		} else {
-			metrics.NotificationsSent.WithLabelValues(notifierType, "success").Inc()
-		}
+		n := n
+		notifyWg.Add(1)
+		go func() {
+			defer notifyWg.Done()
+			notifierType := n.Type()
+			if err := n.Send(processCtx, event, result, artifactURL); err != nil {
+				log.Error("Notification failed", zap.Error(err), zap.String("notifier_type", notifierType))
+				metrics.NotificationsSent.WithLabelValues(notifierType, "error").Inc()
+			} else {
+				metrics.NotificationsSent.WithLabelValues(notifierType, "success").Inc()
+			}
+		}()
 	}
+	notifyWg.Wait()
 
 	metrics.EventsProcessed.WithLabelValues(event.Zone, "success").Inc()
 	log.Info("Event processing total duration", zap.Duration("duration", time.Since(startTime)))
@@ -182,9 +202,10 @@ func (c *Coordinator) analyzeWithRetry(ctx context.Context, event *models.Event,
 		return err
 	}
 
-	// Exponential backoff configuration
+	// Use exponential backoff; MaxElapsedTime=0 disables the independent ceiling so
+	// the processCtx deadline is the sole constraint on retry duration.
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 2 * time.Minute // Stop retrying after 2 minutes
+	b.MaxElapsedTime = 0
 
 	err := backoff.Retry(operation, backoff.WithContext(b, ctx))
 	return result, err

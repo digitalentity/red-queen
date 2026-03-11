@@ -8,6 +8,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestConfig_Validate(t *testing.T) {
+	validBase := func() *Config {
+		return &Config{
+			FTP:   FTPConfig{TempDir: "/tmp/uploads"},
+			Zones: []ZoneConfig{{Name: "front-door", Cameras: []CameraConfig{{IP: "192.168.1.10"}}}},
+		}
+	}
+
+	t.Run("Valid config passes", func(t *testing.T) {
+		assert.NoError(t, validBase().Validate())
+	})
+
+	t.Run("Missing temp_dir", func(t *testing.T) {
+		cfg := validBase()
+		cfg.FTP.TempDir = ""
+		assert.ErrorContains(t, cfg.Validate(), "temp_dir")
+	})
+
+	t.Run("No zones", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Zones = nil
+		assert.ErrorContains(t, cfg.Validate(), "zone")
+	})
+
+	t.Run("Empty zone name", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Zones = []ZoneConfig{{Name: ""}}
+		assert.ErrorContains(t, cfg.Validate(), "zone name")
+	})
+
+	t.Run("Zone name with slash", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Zones = []ZoneConfig{{Name: "../../etc"}}
+		assert.ErrorContains(t, cfg.Validate(), "invalid zone name")
+	})
+
+	t.Run("Zone name with space", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Zones = []ZoneConfig{{Name: "front door"}}
+		assert.ErrorContains(t, cfg.Validate(), "invalid zone name")
+	})
+
+	t.Run("Zone name with hyphens and underscores is valid", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Zones = []ZoneConfig{{Name: "Zone_1-A"}}
+		assert.NoError(t, cfg.Validate())
+	})
+}
+
 func TestLoadConfig(t *testing.T) {
 	// Create a temporary config file
 	configContent := `

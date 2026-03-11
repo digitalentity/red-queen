@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -73,7 +74,10 @@ func (n *HomeyNotifier) Send(ctx context.Context, event *models.Event, result *m
 	if err != nil {
 		return fmt.Errorf("Homey delivery failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body) //nolint:errcheck
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Homey returned non-200 status: %s", resp.Status)

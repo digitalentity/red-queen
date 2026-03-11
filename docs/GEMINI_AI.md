@@ -59,7 +59,15 @@ ml:
   location: "us-central1"
   threshold: 0.85
   target_objects: ["person", "weapon"]
+  max_artifact_size: 20971520 # 20MB in bytes (default)
 ```
+
+Additional optional fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `endpoint` | string | Custom Vertex AI endpoint override. Leave empty to use the default regional endpoint for `location`. |
+| `api_key` | string | API key authentication (alternative to ADC). Not recommended for production; prefer service account credentials. |
 
 ## Memory Management
 

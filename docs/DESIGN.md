@@ -31,7 +31,7 @@ graph TD
     subgraph "Pluggable Backends"
         MLInterface -.->|Cloud/Local| MLModel[ML Model Provider]
         StorageInterface -.->|S3/LocalFS| StorageProvider[Storage Provider]
-        NotificationInterface -.->|Slack/Email| NotificationProvider[Notification Provider]
+        NotificationInterface -.->|Webhook/Telegram/Homey| NotificationProvider[Notification Provider]
     end
 ```
 
@@ -43,6 +43,8 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Timestamp**: The precise time the upload was completed.
 - **CameraIP**: The source IP address for identification.
 - **Zone**: The human-readable zone tag resolved by the Zone Manager.
+- **Labels**: Tags associated with the event (populated from ML analysis results).
+- **Description**: Free-text description of the event (populated from ML analysis results).
 
 ## System Components
 
@@ -81,6 +83,7 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Implementations**:
     - **Webhook Notifier**: Sends a JSON POST request with event details and a link to the stored artifact.
     - **Homey Notifier**: Supports both Homey Cloud and Homey Pro (Local). It triggers flows with a custom tag containing the alert message and artifact URL.
+    - **Telegram Notifier**: Sends a rich MarkdownV2-formatted alert to a Telegram chat. Attempts to upload the artifact file directly (image or video) and falls back to a text message with an artifact URL. See [Telegram Notifier Design](TELEGRAM_NOTIFIER.md) for details.
 
 ### 7. REST API Server
 - **Responsibility**: Serves stored artifacts and provides health/telemetry monitoring.

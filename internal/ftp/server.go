@@ -325,6 +325,8 @@ func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.F
 		File:        f,
 		ctx:         fs.ctx,
 		fullPath:    fullPath,
+		virtualName: name,
+		registry:    fs.registry,
 		coordinator: fs.coordinator,
 		logger:      fs.logger,
 		ip:          fs.ip,
@@ -337,6 +339,8 @@ type ObservedFile struct {
 	afero.File
 	ctx         context.Context
 	fullPath    string
+	virtualName string           // Virtual path used to clean up the registry entry on close.
+	registry    *VirtualRegistry // Registry that holds this file's mapping.
 	coordinator coordinator.Processor
 	logger      *zap.Logger
 	ip          string
@@ -354,7 +358,12 @@ func (f *ObservedFile) Close() error {
 				zap.String("ip", f.ip),
 				zap.String("zone", f.zone),
 			)
-			// Trigger analysis
+			// Remove the virtual mapping now that the coordinator owns the physical file.
+			// This prevents unbounded registry growth for long-running camera sessions.
+			f.registry.mu.Lock()
+			delete(f.registry.mappings, f.virtualName)
+			f.registry.mu.Unlock()
+
 			go f.coordinator.Process(f.ctx, f.fullPath, f.ip, f.zone)
 		})
 	}

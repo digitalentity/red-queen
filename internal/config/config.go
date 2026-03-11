@@ -1,10 +1,16 @@
 package config
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/spf13/viper"
 )
+
+// validZoneName restricts zone names to characters that are safe for use in
+// filesystem paths and log labels.
+var validZoneName = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 type Config struct {
 	LogLevel       string           `mapstructure:"log_level"`
@@ -84,6 +90,27 @@ type NotifyConfig struct {
 type APIConfig struct {
 	Port    int  `mapstructure:"port"`
 	Enabled bool `mapstructure:"enabled"`
+}
+
+// Validate checks that required configuration fields are present and well-formed.
+// It is separate from LoadConfig so that partial configs can still be loaded in
+// tests; call it during application startup via app.New().
+func (c *Config) Validate() error {
+	if c.FTP.TempDir == "" {
+		return fmt.Errorf("ftp.temp_dir must not be empty")
+	}
+	if len(c.Zones) == 0 {
+		return fmt.Errorf("at least one zone must be configured under 'zones'")
+	}
+	for _, z := range c.Zones {
+		if z.Name == "" {
+			return fmt.Errorf("zone name must not be empty")
+		}
+		if !validZoneName.MatchString(z.Name) {
+			return fmt.Errorf("invalid zone name %q: must contain only letters, digits, underscores, and hyphens", z.Name)
+		}
+	}
+	return nil
 }
 
 // LoadConfig reads the configuration from the given file path and merges it with environment variables.
