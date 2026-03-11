@@ -23,16 +23,28 @@ zones:
     cameras:
       - ip: "192.168.1.20"
 
-# Video Processing & ML Module
-ml:
-  provider: "gemini-ai" # Options: mock, gemini-ai, always
-  # Authentication: See docs/GEMINI_AI.md to set up GOOGLE_APPLICATION_CREDENTIALS.
-  model_name: "gemini-1.5-flash"
-  project_id: "your-project-id"
-  location: "us-central1"
-  threshold: 0.85 # Confidence threshold for flagging threats
-  target_objects: ["person", "unauthorized vehicle", "weapon", "aggressive behavior"]
-  max_artifact_size: 20971520 # Max file size in bytes (e.g., 20MB) to prevent OOM with inline data
+# Video Processing & Detection Pipeline
+detection:
+  # Optional: fast local pre-filter to reduce cloud costs.
+  # If omitted, all uploads go directly to the 'analysis' stage.
+  prefilter:
+    provider: "yolo-onnx" # Options: mock, yolo-onnx, always
+    model_path: "/models/yolov8n.onnx"
+    execution_provider: "cpu" # Options: cpu, cuda, tensorrt, coreml
+    threshold: 0.50 # YOLO confidence threshold
+    target_objects: ["person", "vehicle", "animal"]
+    frame_interval: "0.25s" # Sample one frame every 0.25s for video analysis
+
+  # Primary analysis stage (typically cloud-based).
+  analysis:
+    provider: "gemini-ai" # Options: mock, gemini-ai, always
+    # Authentication: See docs/GEMINI_AI.md to set up GOOGLE_APPLICATION_CREDENTIALS.
+    model_name: "gemini-1.5-flash"
+    project_id: "your-project-id"
+    location: "us-central1"
+    threshold: 0.85 # Gemini confidence threshold
+    target_objects: ["person with weapon", "unauthorized intruder"]
+    max_artifact_size: 20971520 # Max file size in bytes (20MB)
 
 # Artifact Storage Module (Permanent)
 storage:

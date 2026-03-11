@@ -13,10 +13,11 @@ zones:
     cameras:
       - ip: "127.0.0.1"
 
-ml:
-  provider: "mock"
-  threshold: 0.5
-  target_objects: ["person"]
+detection:
+  analysis:
+    provider: "mock"
+    threshold: 0.5
+    target_objects: ["person"]
 
 storage:
   provider: "local"

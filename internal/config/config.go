@@ -18,11 +18,11 @@ type Config struct {
 	ProcessTimeout time.Duration    `mapstructure:"process_timeout"`
 	HTTPClient     HTTPClientConfig `mapstructure:"http_client"`
 	FTP            FTPConfig        `mapstructure:"ftp"`
-	Zones          []ZoneConfig     `mapstructure:"zones"`
-	ML             MLConfig         `mapstructure:"ml"`
-	Storage        StorageConfig    `mapstructure:"storage"`
-	Notifications  []NotifyConfig   `mapstructure:"notifications"`
-	API            APIConfig        `mapstructure:"api"`
+	Zones          []ZoneConfig    `mapstructure:"zones"`
+	Detection      DetectionConfig `mapstructure:"detection"`
+	Storage        StorageConfig   `mapstructure:"storage"`
+	Notifications  []NotifyConfig  `mapstructure:"notifications"`
+	API            APIConfig       `mapstructure:"api"`
 }
 
 type HTTPClientConfig struct {
@@ -47,16 +47,34 @@ type CameraConfig struct {
 	IP string `mapstructure:"ip"`
 }
 
-type MLConfig struct {
-	Provider        string   `mapstructure:"provider"`
-	ModelName       string   `mapstructure:"model_name"`
-	ProjectID       string   `mapstructure:"project_id"`
-	Location        string   `mapstructure:"location"`
-	Endpoint        string   `mapstructure:"endpoint"`
-	APIKey          string   `mapstructure:"api_key"`
-	Threshold       float64  `mapstructure:"threshold"`
-	TargetObjects   []string `mapstructure:"target_objects"`
-	MaxArtifactSize int64    `mapstructure:"max_artifact_size"` // Max size in bytes
+// DetectionConfig configures the multi-stage detection pipeline.
+// Prefilter is optional; when nil the Analysis stage runs directly.
+type DetectionConfig struct {
+	Prefilter *AnalyzerConfig `mapstructure:"prefilter"`
+	Analysis  AnalyzerConfig  `mapstructure:"analysis"`
+}
+
+// AnalyzerConfig holds all fields for any analyzer implementation.
+// Fields that do not apply to a given provider are ignored.
+type AnalyzerConfig struct {
+	Provider string `mapstructure:"provider"` // "yolo-onnx" | "gemini-ai" | "always"
+
+	// Common fields
+	Threshold     float64  `mapstructure:"threshold"`
+	TargetObjects []string `mapstructure:"target_objects"`
+
+	// YOLO ONNX (provider: "yolo-onnx")
+	ModelPath         string        `mapstructure:"model_path"`
+	ExecutionProvider string        `mapstructure:"execution_provider"` // default: "cpu"
+	FrameInterval     time.Duration `mapstructure:"frame_interval"`     // default: 2s
+
+	// Gemini AI (provider: "gemini-ai")
+	ModelName       string `mapstructure:"model_name"`
+	ProjectID       string `mapstructure:"project_id"`
+	Location        string `mapstructure:"location"`
+	Endpoint        string `mapstructure:"endpoint"`
+	APIKey          string `mapstructure:"api_key"`
+	MaxArtifactSize int64  `mapstructure:"max_artifact_size"`
 }
 
 type StorageConfig struct {
@@ -110,6 +128,17 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid zone name %q: must contain only letters, digits, underscores, and hyphens", z.Name)
 		}
 	}
+
+	if c.Detection.Analysis.Provider == "" {
+		return fmt.Errorf("detection.analysis.provider must not be empty")
+	}
+
+	if c.Detection.Prefilter != nil {
+		if c.Detection.Prefilter.Provider == "" {
+			return fmt.Errorf("detection.prefilter.provider must not be empty")
+		}
+	}
+
 	return nil
 }
 

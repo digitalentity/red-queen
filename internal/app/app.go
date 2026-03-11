@@ -50,23 +50,27 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 	// 1. Initialize Domain Components
 	zoneManager := zone.NewManager(cfg.Zones)
 
-	// 2. Initialize Analysis
-	var analyzer ml.Analyzer
-	switch cfg.ML.Provider {
-	case "gemini-ai":
-		gAnalyzer, err := ml.NewGeminiAnalyzer(ctx, logger, cfg.ML)
+	// 2. Initialize Detection Pipeline (Analysis + Optional Prefilter)
+	analysis, err := ml.NewAnalyzer(ctx, cfg.Detection.Analysis, logger)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize analysis stage: %w", err)
+	}
+
+	var analyzer ml.Analyzer = analysis
+	if cfg.Detection.Prefilter != nil {
+		prefilter, err := ml.NewAnalyzer(ctx, *cfg.Detection.Prefilter, logger)
 		if err != nil {
 			cancel()
-			return nil, fmt.Errorf("failed to initialize Gemini AI analyzer: %w", err)
+			return nil, fmt.Errorf("failed to initialize prefilter stage: %w", err)
 		}
-		analyzer = gAnalyzer
-		logger.Info("Using Gemini AI analyzer", zap.String("model", cfg.ML.ModelName))
-	case "always":
-		analyzer = &ml.PassThroughAnalyzer{}
-		logger.Warn("Using 'always' ML provider - EVERY UPLOAD WILL TRIGGER A THREAT")
-	default:
-		logger.Warn("Unknown or no ML provider configured, using mock")
-		analyzer = &ml.MockAnalyzer{}
+		analyzer = ml.NewChainedAnalyzer(prefilter, analysis, logger)
+		logger.Info("Multi-stage detection enabled",
+			zap.String("prefilter", cfg.Detection.Prefilter.Provider),
+			zap.String("analysis", cfg.Detection.Analysis.Provider))
+	} else {
+		logger.Info("Single-stage detection enabled",
+			zap.String("analysis", cfg.Detection.Analysis.Provider))
 	}
 
 	// 3. Initialize Storage

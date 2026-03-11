@@ -18,11 +18,11 @@ import (
 
 type GeminiAnalyzer struct {
 	logger *zap.Logger
-	cfg    config.MLConfig
+	cfg    config.AnalyzerConfig
 	client *genai.Client
 }
 
-func NewGeminiAnalyzer(ctx context.Context, logger *zap.Logger, cfg config.MLConfig) (*GeminiAnalyzer, error) {
+func NewGeminiAnalyzer(ctx context.Context, cfg config.AnalyzerConfig, logger *zap.Logger) (*GeminiAnalyzer, error) {
 	// We use BackendVertexAI to leverage Google Cloud's enterprise features 
 	// (IAM, project management, and higher quotas) while using Gemini models.
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{

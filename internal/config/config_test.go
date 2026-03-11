@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,11 +14,26 @@ func TestConfig_Validate(t *testing.T) {
 		return &Config{
 			FTP:   FTPConfig{TempDir: "/tmp/uploads"},
 			Zones: []ZoneConfig{{Name: "front-door", Cameras: []CameraConfig{{IP: "192.168.1.10"}}}},
+			Detection: DetectionConfig{
+				Analysis: AnalyzerConfig{Provider: "gemini-ai"},
+			},
 		}
 	}
 
 	t.Run("Valid config passes", func(t *testing.T) {
 		assert.NoError(t, validBase().Validate())
+	})
+
+	t.Run("Missing analysis provider", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Detection.Analysis.Provider = ""
+		assert.ErrorContains(t, cfg.Validate(), "analysis.provider")
+	})
+
+	t.Run("Prefilter missing provider", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Detection.Prefilter = &AnalyzerConfig{Provider: ""}
+		assert.ErrorContains(t, cfg.Validate(), "prefilter.provider")
 	})
 
 	t.Run("Missing temp_dir", func(t *testing.T) {
@@ -104,11 +120,12 @@ zones:
 		assert.Equal(t, 2121, cfg.FTP.Port)
 	})
 
-	t.Run("Load with ML config", func(t *testing.T) {
+	t.Run("Load with Detection config", func(t *testing.T) {
 		configContent := `
-ml:
-  provider: gemini-ai
-  max_artifact_size: 1024
+detection:
+  analysis:
+    provider: gemini-ai
+    max_artifact_size: 1024
 `
 		tmpFile, err := os.CreateTemp("", "mlconfig*.yaml")
 		require.NoError(t, err)
@@ -119,7 +136,29 @@ ml:
 		cfg, err := LoadConfig(tmpFile.Name())
 		require.NoError(t, err)
 
-		assert.Equal(t, "gemini-ai", cfg.ML.Provider)
-		assert.Equal(t, int64(1024), cfg.ML.MaxArtifactSize)
+		assert.Equal(t, "gemini-ai", cfg.Detection.Analysis.Provider)
+		assert.Equal(t, int64(1024), cfg.Detection.Analysis.MaxArtifactSize)
+	})
+
+	t.Run("Load with prefilter config", func(t *testing.T) {
+		configContent := `
+detection:
+  prefilter:
+    provider: yolo-onnx
+    frame_interval: 500ms
+  analysis:
+    provider: gemini-ai
+`
+		tmpFile, err := os.CreateTemp("", "prefilter*.yaml")
+		require.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		_, _ = tmpFile.WriteString(configContent)
+		tmpFile.Close()
+
+		cfg, err := LoadConfig(tmpFile.Name())
+		require.NoError(t, err)
+
+		assert.Equal(t, "yolo-onnx", cfg.Detection.Prefilter.Provider)
+		assert.Equal(t, 500*time.Millisecond, cfg.Detection.Prefilter.FrameInterval)
 	})
 }

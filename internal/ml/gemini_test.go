@@ -21,12 +21,11 @@ func TestGeminiAnalyzer_Analyze_Limit(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
 	
-	content := []byte("too large content")
-	_, err = tmpFile.Write(content)
+	_, err = tmpFile.Write([]byte("too large content"))
 	require.NoError(t, err)
 	tmpFile.Close()
 
-	cfg := config.MLConfig{
+	cfg := config.AnalyzerConfig{
 		MaxArtifactSize: 5, // 5 bytes limit
 	}
 
