@@ -218,6 +218,63 @@ func TestCoordinator_Process_ConcurrencySemaphore(t *testing.T) {
 	assert.LessOrEqual(t, peak.Load(), int32(concurrency), "Concurrent active analyses must not exceed semaphore limit")
 }
 
+func TestCoordinator_Process_AlwaysStore(t *testing.T) {
+	logger := zap.NewNop()
+	tmpFile, err := os.CreateTemp("", "always_store*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	analyzer := &ml.MockAnalyzer{
+		AnalyzeFunc: func(ctx context.Context, event *models.Event) (*ml.Result, error) {
+			return &ml.Result{IsThreat: false, Confidence: 0.1}, nil
+		},
+	}
+	store := &storage.MockProvider{}
+	notifier := &notify.MockNotifier{}
+
+	// AlwaysStore = true
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{notifier}, CoordinatorConfig{
+		AlwaysStore: true,
+		Concurrency: 1,
+	})
+	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Always Store Zone")
+
+	// Even though it's NOT a threat, it should be saved
+	assert.Len(t, store.GetSavedEvents(), 1)
+	// Default notification condition is "on_threat", so it should NOT be notified
+	assert.Len(t, notifier.GetSentAlerts(), 0)
+}
+
+func TestCoordinator_Process_NotifyAlways(t *testing.T) {
+	logger := zap.NewNop()
+	tmpFile, err := os.CreateTemp("", "notify_always*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	analyzer := &ml.MockAnalyzer{
+		AnalyzeFunc: func(ctx context.Context, event *models.Event) (*ml.Result, error) {
+			return &ml.Result{IsThreat: false, Confidence: 0.1}, nil
+		},
+	}
+	store := &storage.MockProvider{}
+	
+	n1 := &notify.MockNotifier{MockCondition: "always"}
+	n2 := &notify.MockNotifier{MockCondition: "on_threat"}
+
+	c := NewCoordinator(logger, analyzer, store, []notify.Notifier{n1, n2}, CoordinatorConfig{
+		Concurrency: 1,
+	})
+	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Notify Zone")
+
+	// Not saved by default
+	assert.Len(t, store.GetSavedEvents(), 0)
+	
+	// n1 should have notified (always)
+	assert.Len(t, n1.GetSentAlerts(), 1)
+	// n2 should NOT have notified (on_threat)
+	assert.Len(t, n2.GetSentAlerts(), 0)
+}
+
 func TestCoordinator_Process_RetainFiles(t *testing.T) {
 	logger := zap.NewNop()
 	tmpFile, err := os.CreateTemp("", "retain*.txt")

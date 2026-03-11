@@ -39,6 +39,13 @@ func (n *TelegramNotifier) Type() string {
 	return "telegram"
 }
 
+func (n *TelegramNotifier) Condition() string {
+	if n.cfg.Condition == "" {
+		return "on_threat"
+	}
+	return n.cfg.Condition
+}
+
 func (n *TelegramNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {
 	message := n.formatMessage(event, result, artifactURL)
 
@@ -54,7 +61,11 @@ func (n *TelegramNotifier) Send(ctx context.Context, event *models.Event, result
 
 func (n *TelegramNotifier) formatMessage(event *models.Event, result *ml.Result, artifactURL string) string {
 	var sb strings.Builder
-	sb.WriteString("🚨 *Threat Detected!*\n\n")
+	if result.IsThreat {
+		sb.WriteString("🚨 *Threat Detected!*\n\n")
+	} else {
+		sb.WriteString("✅ *Event Recorded*\n\n")
+	}
 	sb.WriteString(fmt.Sprintf("*Zone:* %s\n", n.escapeMarkdown(event.Zone)))
 	sb.WriteString(fmt.Sprintf("*Confidence:* %.0f%%\n", result.Confidence*100))
 	

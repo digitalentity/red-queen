@@ -54,6 +54,7 @@ detection:
 # succeeds. Place the provider whose URL you want recipients to receive first.
 # Example: put google_drive before local if you want Drive links in alerts.
 storage:
+  always_store: false # If true, ALL uploads are retained in storage (regardless of threat status)
   providers:
     - type: local
       local:
@@ -67,15 +68,22 @@ storage:
 notifications:
   - type: "webhook"
     enabled: true
+    condition: "always" # Options: on_threat (default), always
     url: "https://discord.com/api/webhooks/..."
   - type: "homey" # Homey Cloud
     enabled: false
+    condition: "on_threat"
     homey_id: "your-homey-id"
     event: "threat_detected"
   - type: "homey" # Homey Pro Local
     enabled: false
     url: "http://192.168.1.50"
     event: "threat_detected"
+  - type: "telegram"
+    enabled: false
+    token: "BOT_TOKEN"
+    chat_id: 123456789
+    artifact_base_url: "https://your-public-url.com/artifacts"
 
 # Future: Zone State REST API
 api:

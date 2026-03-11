@@ -36,6 +36,7 @@ storage:
 
 ```yaml
 storage:
+  always_store: true
   providers:
     - type: local
       local:
@@ -50,7 +51,8 @@ storage:
 
 ```go
 type StorageConfig struct {
-    Providers []StorageProviderConfig `mapstructure:"providers"`
+    AlwaysStore bool                  `mapstructure:"always_store"`
+    Providers   []StorageProviderConfig `mapstructure:"providers"`
 }
 
 type StorageProviderConfig struct {

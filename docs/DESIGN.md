@@ -22,8 +22,8 @@ graph TD
         Coordinator -.->|"5a. Soft Failure"| Retry[Retry with Exponential Backoff]
         Retry -.-> MLInterface
 
-        Coordinator -->|"6. If Threat: Save(Event)"| StorageInterface[Artifact Storage Interface]
-        Coordinator -->|"7. If Threat: Send(Event, Result, URL)"| NotificationInterface[Notification Interface]
+        Coordinator -->|"6. Store(Event)"| StorageInterface[Artifact Storage Interface]
+        Coordinator -->|"7. Notify(Event, Result, URL)"| NotificationInterface[Notification Interface]
         
         Coordinator -->|"8. Cleanup"| TempStorage[Ephemeral Storage]
     end
@@ -61,7 +61,9 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Workflow**:
     - Generates a unique Event ID.
     - Orchestrates ML analysis with retry logic.
-    - Coordinates storage and notifications if a threat is confirmed.
+    - Coordinates storage and notifications based on configuration:
+        - **Storage**: Always if `always_store` is enabled, otherwise only on confirmed threats.
+        - **Notifications**: Based on each notifier's `condition` (`on_threat` or `always`).
     - Ensures the local file is deleted after processing.
 
 ### 4. ML Interface (Pluggable)
@@ -139,11 +141,13 @@ sequenceDiagram
         loop Analysis Retry Loop
             Coordinator->>MLInterface: "Analyze(Event)"
             alt Success
-                MLInterface-->>Coordinator: "Result (IsThreat: True)"
+                MLInterface-->>Coordinator: "Result"
                 
+                Note over Coordinator: Storage logic (Threat OR AlwaysStore)
                 Coordinator->>Storage: "Save(Event)"
                 Storage-->>Coordinator: "Artifact URL"
                 
+                Note over Coordinator: Notification logic (Condition match)
                 Coordinator->>Notification: "Send(Event, Result, URL)"
                 Notification-->>Coordinator: Success
             else Soft Failure

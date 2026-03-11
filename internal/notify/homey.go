@@ -36,10 +36,23 @@ func (n *HomeyNotifier) Type() string {
 	return "homey"
 }
 
+func (n *HomeyNotifier) Condition() string {
+	if n.cfg.Condition == "" {
+		return "on_threat"
+	}
+	return n.cfg.Condition
+}
+
 func (n *HomeyNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {
 	// Format the message tag
-	message := fmt.Sprintf("Threat detected in %s! Confidence: %.2f. Artifact: %s", 
-		event.Zone, result.Confidence, artifactURL)
+	var message string
+	if result.IsThreat {
+		message = fmt.Sprintf("Threat detected in %s! Confidence: %.2f. Artifact: %s", 
+			event.Zone, result.Confidence, artifactURL)
+	} else {
+		message = fmt.Sprintf("Event recorded in %s. Confidence: %.2f. Artifact: %s", 
+			event.Zone, result.Confidence, artifactURL)
+	}
 
 	var u *url.URL
 	var err error

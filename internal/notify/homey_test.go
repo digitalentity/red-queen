@@ -20,6 +20,7 @@ func TestHomeyNotifier_Send(t *testing.T) {
 		Zone: "FrontDoor",
 	}
 	result := &ml.Result{
+		IsThreat:   true,
 		Confidence: 0.95,
 	}
 	artifactURL := "/artifacts/test.jpg"
@@ -57,6 +58,7 @@ func TestHomeyNotifier_SendLocal(t *testing.T) {
 		Zone: "Garage",
 	}
 	result := &ml.Result{
+		IsThreat:   true,
 		Confidence: 0.88,
 	}
 	artifactURL := "/artifacts/local.jpg"

@@ -40,6 +40,7 @@ The following fields in the `NotifyConfig` struct in `internal/config/config.go`
 |-------|------|-------------|
 | `type` | string | Must be `telegram`. |
 | `enabled` | bool | Enables the notifier. |
+| `condition` | string | (Optional) Notification condition: `on_threat` (default) or `always`. |
 | `token` | string | The Telegram Bot API token from [@BotFather](https://t.me/botfather). |
 | `chat_id` | int64 | The unique identifier for the target chat or group. |
 | `artifact_base_url` | string | (Optional) The public base URL of the Red Queen API for artifact links. |
@@ -49,6 +50,7 @@ The following fields in the `NotifyConfig` struct in `internal/config/config.go`
 notifications:
   - type: telegram
     enabled: true
+    condition: "on_threat"
     token: "123456789:ABCdefGHIjklMNOpqrsTUVwxyZ"
     chat_id: -100123456789
     artifact_base_url: "https://my-red-queen.example.com"
@@ -58,7 +60,7 @@ notifications:
 
 ### 1. Message Formatting
 The notifier uses `MarkdownV2` for rich text formatting.
-- **Header**: 🚨 *Threat Detected\!*
+- **Header**: 🚨 *Threat Detected\!* (if threat) or ✅ *Event Recorded* (otherwise).
 - **Zone**: `event.Zone`
 - **Confidence**: `result.Confidence` (formatted as percentage)
 - **Labels**: `result.Labels` (comma separated)

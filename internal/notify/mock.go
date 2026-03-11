@@ -18,10 +18,18 @@ type MockNotifier struct {
 	mu         sync.Mutex
 	SendFunc   func(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error
 	SentAlerts []SentAlert
+	MockCondition string
 }
 
 func (m *MockNotifier) Type() string {
 	return "mock"
+}
+
+func (m *MockNotifier) Condition() string {
+	if m.MockCondition == "" {
+		return "on_threat"
+	}
+	return m.MockCondition
 }
 
 func (m *MockNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {

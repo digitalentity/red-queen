@@ -76,7 +76,8 @@ type AnalyzerConfig struct {
 }
 
 type StorageConfig struct {
-	Providers []StorageProviderConfig `mapstructure:"providers"`
+	AlwaysStore bool                  `mapstructure:"always_store"`
+	Providers   []StorageProviderConfig `mapstructure:"providers"`
 }
 
 // StorageProviderConfig holds the configuration for a single storage backend.
@@ -106,6 +107,7 @@ type GDriveConfig struct {
 type NotifyConfig struct {
 	Type            string `mapstructure:"type"`
 	Enabled         bool   `mapstructure:"enabled"`
+	Condition       string `mapstructure:"condition"`        // "on_threat" (default) | "always"
 	URL             string `mapstructure:"url"`              // Used by Webhook; Telegram API base URL override
 	ArtifactBaseURL string `mapstructure:"artifact_base_url"` // Used by Telegram: public base URL for artifact links
 	Token           string `mapstructure:"token"`             // Used by Telegram
@@ -153,6 +155,15 @@ func (c *Config) Validate() error {
 			}
 		case "":
 			return fmt.Errorf("storage.providers[%d]: type must not be empty", i)
+		}
+	}
+
+	for i, n := range c.Notifications {
+		if !n.Enabled {
+			continue
+		}
+		if n.Condition != "" && n.Condition != "on_threat" && n.Condition != "always" {
+			return fmt.Errorf("notifications[%d]: invalid condition %q: must be 'on_threat' or 'always'", i, n.Condition)
 		}
 	}
 

@@ -122,14 +122,17 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 
 		switch ncfg.Type {
 		case "webhook":
-			notifiers = append(notifiers, notify.NewWebhookNotifier(ncfg, httpClient))
-			logger.Info("Enabled webhook notifier", zap.String("url", ncfg.URL))
+			n := notify.NewWebhookNotifier(ncfg, httpClient)
+			notifiers = append(notifiers, n)
+			logger.Info("Enabled webhook notifier", zap.String("url", ncfg.URL), zap.String("condition", n.Condition()))
 		case "homey":
-			notifiers = append(notifiers, notify.NewHomeyNotifier(ncfg, httpClient))
-			logger.Info("Enabled Homey notifier", zap.String("homey_id", ncfg.HomeyID), zap.String("event", ncfg.Event))
+			n := notify.NewHomeyNotifier(ncfg, httpClient)
+			notifiers = append(notifiers, n)
+			logger.Info("Enabled Homey notifier", zap.String("homey_id", ncfg.HomeyID), zap.String("event", ncfg.Event), zap.String("condition", n.Condition()))
 		case "telegram":
-			notifiers = append(notifiers, notify.NewTelegramNotifier(ncfg, httpClient))
-			logger.Info("Enabled Telegram notifier", zap.Int64("chat_id", ncfg.ChatID))
+			n := notify.NewTelegramNotifier(ncfg, httpClient)
+			notifiers = append(notifiers, n)
+			logger.Info("Enabled Telegram notifier", zap.Int64("chat_id", ncfg.ChatID), zap.String("condition", n.Condition()))
 		default:
 			logger.Warn("Unknown notifier type", zap.String("type", ncfg.Type))
 		}
@@ -148,9 +151,13 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 
 	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, coordinator.CoordinatorConfig{
 		RetainFiles:    cfg.FTP.RetainFiles,
+		AlwaysStore:    cfg.Storage.AlwaysStore,
 		Concurrency:    cfg.Concurrency,
 		ProcessTimeout: processTimeout,
 	})
+	if cfg.Storage.AlwaysStore {
+		logger.Info("Storage: always_store enabled (retaining all events)")
+	}
 
 	// 6. Initialize Servers
 	ftpServer := ftp.NewServer(ctx, logger, cfg.FTP, orchestrator, zoneManager)

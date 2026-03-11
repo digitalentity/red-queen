@@ -30,6 +30,13 @@ func (n *WebhookNotifier) Type() string {
 	return "webhook"
 }
 
+func (n *WebhookNotifier) Condition() string {
+	if n.cfg.Condition == "" {
+		return "on_threat"
+	}
+	return n.cfg.Condition
+}
+
 type WebhookPayload struct {
 	EventID     string    `json:"event_id"`
 	Timestamp   time.Time `json:"timestamp"`

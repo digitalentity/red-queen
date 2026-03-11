@@ -27,6 +27,7 @@ func TestTelegramNotifier_formatMessage(t *testing.T) {
 		Timestamp: time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 	}
 	result := &ml.Result{
+		IsThreat:   true,
 		Confidence: 0.956,
 		Labels:     []string{"Person", "Backpack"},
 	}
@@ -77,7 +78,7 @@ func TestTelegramNotifier_Send_Fallback(t *testing.T) {
 		FilePath: tmpFile.Name(),
 		Zone:     "Garden",
 	}
-	result := &ml.Result{Confidence: 0.9}
+	result := &ml.Result{IsThreat: true, Confidence: 0.9}
 
 	err = n.Send(context.Background(), event, result, "")
 	assert.NoError(t, err)
@@ -112,7 +113,7 @@ func TestTelegramNotifier_Send_Success(t *testing.T) {
 		FilePath: tmpFile.Name(),
 		Zone:     "Garden",
 	}
-	result := &ml.Result{Confidence: 0.9}
+	result := &ml.Result{IsThreat: true, Confidence: 0.9}
 
 	err = n.Send(context.Background(), event, result, "")
 	assert.NoError(t, err)

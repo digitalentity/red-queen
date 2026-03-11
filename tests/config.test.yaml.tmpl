@@ -20,6 +20,7 @@ detection:
     target_objects: ["person"]
 
 storage:
+  always_store: {{.AlwaysStore}}
   providers:
     - type: local
       local:
@@ -28,6 +29,7 @@ storage:
 notifications:
   - type: "webhook"
     enabled: true
+    condition: "{{.WebhookCondition}}"
     url: "http://127.0.0.1:{{.WebhookPort}}/webhook"
   - type: "telegram"
     enabled: true

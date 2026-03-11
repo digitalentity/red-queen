@@ -5,7 +5,6 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFullSystemIntegration(t *testing.T) {
+func TestAlwaysIntegration(t *testing.T) {
 	// 0. Find free ports
 	getFreePort := func() int {
 		addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -35,18 +34,16 @@ func TestFullSystemIntegration(t *testing.T) {
 	webhookPort := getFreePort()
 	telegramPort := getFreePort()
 
-	// Create a parent temp directory for all test assets
-	testParentDir, err := os.MkdirTemp("", "redqueen-integration-*")
+	testParentDir, err := os.MkdirTemp("", "redqueen-always-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(testParentDir)
 
-	// Sub-directories for different concerns
 	tmpDir := filepath.Join(testParentDir, "uploads")
 	storageDir := filepath.Join(testParentDir, "storage")
 	require.NoError(t, os.Mkdir(tmpDir, 0755))
 	require.NoError(t, os.Mkdir(storageDir, 0755))
 
-	// 1. Generate a temporary config file from template
+	// 1. Generate config with AlwaysStore=true and WebhookCondition=always
 	configPath := filepath.Join(testParentDir, "config.yaml")
 	tmpl, err := template.ParseFiles("config.test.yaml.tmpl")
 	require.NoError(t, err)
@@ -70,8 +67,8 @@ func TestFullSystemIntegration(t *testing.T) {
 		APIPort:          apiPort,
 		WebhookPort:      webhookPort,
 		TelegramPort:     telegramPort,
-		AlwaysStore:      false,
-		WebhookCondition: "on_threat",
+		AlwaysStore:      true,
+		WebhookCondition: "always",
 	})
 	require.NoError(t, err)
 	f.Close()
@@ -91,36 +88,17 @@ func TestFullSystemIntegration(t *testing.T) {
 	go webhookServer.ListenAndServe()
 	defer webhookServer.Close()
 
-	// 2.1 Start Mock Telegram Receiver
-	telegramChan := make(chan string, 1)
-	telegramServer := &http.Server{
-		Addr: fmt.Sprintf(":%d", telegramPort),
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/botTEST_TOKEN/sendPhoto" || r.URL.Path == "/botTEST_TOKEN/sendVideo" {
-				telegramChan <- "media"
-			} else if r.URL.Path == "/botTEST_TOKEN/sendMessage" {
-				telegramChan <- "text"
-			}
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"ok": true}`))
-		}),
-	}
-	go telegramServer.ListenAndServe()
-	defer telegramServer.Close()
-
-	// 3. Start Red Queen in the background
+	// 3. Start Red Queen (NOT as a threat)
 	root, err := filepath.Abs("..")
 	require.NoError(t, err)
 	binaryPath := filepath.Join(root, "red-queen")
 
 	cmd := exec.Command(binaryPath)
-	cmd.Dir = testParentDir // Run from the temp directory
+	cmd.Dir = testParentDir
 	cmd.Env = append(os.Environ(), 
 		"RED_QUEEN_CONFIG="+configPath, 
-		"RED_QUEEN_MOCK_THREAT=true",
+		"RED_QUEEN_MOCK_THREAT=false", // No threat!
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	require.NoError(t, cmd.Start())
 	defer func() {
 		if cmd.Process != nil {
@@ -128,66 +106,38 @@ func TestFullSystemIntegration(t *testing.T) {
 		}
 	}()
 
-	// Wait for the API server to be ready (indicates all services have started)
+	// Wait for readiness
 	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", apiPort)
 	require.Eventually(t, func() bool {
-		resp, err := http.Get(healthURL) //nolint:noctx
+		resp, err := http.Get(healthURL)
 		if err != nil {
 			return false
 		}
 		resp.Body.Close()
 		return resp.StatusCode == http.StatusOK
-	}, 15*time.Second, 100*time.Millisecond, "API server did not become ready in time")
+	}, 15*time.Second, 100*time.Millisecond)
 
-	// 4. Create and upload a file via FTP using curl
-	testFileName := "camera_clip.mp4"
+	// 4. Upload file
+	testFileName := "normal_event.jpg"
 	testFilePath := filepath.Join(testParentDir, testFileName)
-	require.NoError(t, os.WriteFile(testFilePath, []byte("fake video content"), 0644))
+	require.NoError(t, os.WriteFile(testFilePath, []byte("normal content"), 0644))
 
 	curlCmd := exec.Command("curl", "-s", "--user", "testuser:testpassword", "-T", testFilePath, fmt.Sprintf("ftp://127.0.0.1:%d/", ftpPort))
-	out, err := curlCmd.CombinedOutput()
-	require.NoError(t, err, string(out))
+	require.NoError(t, curlCmd.Run())
 
-	// 5. Wait for Webhook
+	// 5. Verify Webhook (sent because condition=always)
 	select {
 	case payload := <-webhookChan:
-		t.Logf("Received webhook: %+v", payload)
-		assert.Equal(t, "TestZone", payload["zone"])
+		assert.False(t, payload["is_threat"].(bool))
+		assert.NotEmpty(t, payload["artifact_url"])
 		
-		// Wait for Telegram too
-		select {
-		case typeOfMsg := <-telegramChan:
-			t.Logf("Received Telegram notification: %s", typeOfMsg)
-			assert.Equal(t, "media", typeOfMsg)
-		case <-time.After(5 * time.Second):
-			t.Fatal("Timed out waiting for Telegram notification")
-		}
-
-		assert.Equal(t, "127.0.0.1", payload["camera_ip"])
-		assert.True(t, payload["is_threat"].(bool))
-		
-		artifactURL := payload["artifact_url"].(string)
-		assert.NotEmpty(t, artifactURL)
-
-		// 6. Verify file in storage
+		// 6. Verify file in storage (stored because always_store=true)
 		today := time.Now().Format("2006-01-02")
 		expectedDir := filepath.Join(storageDir, today, "TestZone")
-		files, err := os.ReadDir(expectedDir)
-		require.NoError(t, err)
-		assert.NotEmpty(t, files, "Should find at least one file in storage")
-
-		// 7. Verify accessibility via REST API
-		apiURL := fmt.Sprintf("http://127.0.0.1:%d%s", apiPort, artifactURL)
-		t.Logf("Checking API at: %s", apiURL)
-		
-		resp, err := http.Get(apiURL)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		
-		content, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		assert.Equal(t, "fake video content", string(content))
+		require.Eventually(t, func() bool {
+			files, _ := os.ReadDir(expectedDir)
+			return len(files) > 0
+		}, 5*time.Second, 100*time.Millisecond)
 
 	case <-time.After(15 * time.Second):
 		t.Fatal("Timed out waiting for webhook")

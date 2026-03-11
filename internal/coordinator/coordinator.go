@@ -26,6 +26,7 @@ type Processor interface {
 // CoordinatorConfig holds the configuration for the Coordinator.
 type CoordinatorConfig struct {
 	RetainFiles    bool
+	AlwaysStore    bool
 	Concurrency    int
 	ProcessTimeout time.Duration
 }
@@ -134,30 +135,38 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 		return
 	}
 
-	log.Info("Analysis completed", zap.Bool("is_threat", result.IsThreat), zap.Float64("confidence", result.Confidence))
+	isThreat := result.IsThreat
+	log.Info("Analysis completed", zap.Bool("is_threat", isThreat), zap.Float64("confidence", result.Confidence))
 
-	// 2. If no threat, we are done
-	if !result.IsThreat {
-		metrics.EventsProcessed.WithLabelValues(event.Zone, "success").Inc()
-		return
+	if isThreat {
+		metrics.MLThreatsDetected.WithLabelValues(event.Zone).Inc()
 	}
 
-	metrics.MLThreatsDetected.WithLabelValues(event.Zone).Inc()
+	// 2. Determine if we should store the artifact
+	shouldStore := isThreat || c.config.AlwaysStore
+	var artifactURL string
 
-	// 3. Store Artifact
-	artifactURL, err := c.storage.Save(processCtx, event)
-	storageType := c.storage.Type()
-	if err != nil {
-		log.Error("Failed to store threat artifact", zap.Error(err), zap.String("storage_type", storageType))
-		metrics.StorageOperations.WithLabelValues(storageType, "error").Inc()
-		// We continue to notify even if storage fails, though the URL will be empty/invalid
-	} else {
-		metrics.StorageOperations.WithLabelValues(storageType, "success").Inc()
+	if shouldStore {
+		// 3. Store Artifact
+		var err error
+		artifactURL, err = c.storage.Save(processCtx, event)
+		storageType := c.storage.Type()
+		if err != nil {
+			log.Error("Failed to store artifact", zap.Error(err), zap.String("storage_type", storageType))
+			metrics.StorageOperations.WithLabelValues(storageType, "error").Inc()
+			// We continue to notify even if storage fails, though the URL will be empty/invalid
+		} else {
+			metrics.StorageOperations.WithLabelValues(storageType, "success").Inc()
+		}
 	}
 
 	// 4. Notify all configured notifiers concurrently.
 	var notifyWg sync.WaitGroup
 	for _, n := range c.notifiers {
+		if n.Condition() == "on_threat" && !isThreat {
+			continue
+		}
+
 		n := n
 		notifyWg.Add(1)
 		go func() {
