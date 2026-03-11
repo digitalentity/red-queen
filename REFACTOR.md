@@ -5,10 +5,10 @@ This document tracks the results of system audits, identifies areas for improvem
 ## 1. Open Issues & Future Refinements
 
 ### 1.1. Medium Priority: Memory Pressure in ML Analysis
-**Issue:** `VertexAnalyzer.Analyze` currently reads the entire artifact into memory (`os.ReadFile`) before sending it to the Gemini API. 
+**Issue:** `GeminiAnalyzer.Analyze` currently reads the entire artifact into memory (`os.ReadFile`) before sending it to the Gemini API. 
 **Risk:** While protected by `MaxArtifactSize` (default 20MB), this approach can cause memory spikes under high concurrency.
 **Proposed Fix:** 
-- Implement streaming for the Vertex AI Files API for larger artifacts.
+- Implement streaming for the Gemini AI Files API for larger artifacts.
 - Explore processing video in segments or using lower-resolution proxies if cloud costs or memory become a bottleneck.
 
 ### 1.2. Low Priority: Advanced Camera Protocol Support
@@ -31,5 +31,5 @@ This document tracks the results of system audits, identifies areas for improvem
 - **REST API Decoupling**: Decoupled `pkg/api/server.go` from `config.LocalConfig`. It now accepts a generic `http.Handler`, allowing it to support various storage providers (Local, S3, etc.) without code changes.
 - **Standardized HTTP Clients**: Implemented a shared, configurable `http.Client` injected into all notifiers, ensuring consistent timeouts and centralized network configuration.
 - **Telegram Reliability**: Implemented automatic truncation of captions (1024 chars) and text messages (4096 chars) in `TelegramNotifier` to comply with API limits.
-- **MIME Type Detection**: Implemented robust MIME type sniffing and extension fallbacks in `VertexAnalyzer` to support various image and video formats.
+- **MIME Type Detection**: Implemented robust MIME type sniffing and extension fallbacks in `GeminiAnalyzer` to support various image and video formats.
 - **Secure FTP Naming**: Implemented a unique, traceable naming scheme (`IP-UUID-filename`) for temporary FTP uploads.

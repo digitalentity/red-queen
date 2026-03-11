@@ -31,7 +31,7 @@ This document outlines planned and suggested improvements for the Red Queen Vide
 
 ## 5. Observability & Reliability
 - **OpenTelemetry Tracing**: Implement tracing to follow the lifecycle of an event from the moment a file is uploaded until the notification is sent.
-- **Enhanced Health Checks**: Extend the existing `/health` endpoint to report the status of downstream dependencies (Vertex AI, Storage, etc.). Currently, it only provides a basic "OK" response.
+- **Enhanced Health Checks**: Extend the existing `/health` endpoint to report the status of downstream dependencies (Gemini AI, Storage, etc.). Currently, it only provides a basic "OK" response.
 
 ## 6. Notification Channels
 - **Mobile Push**: Native mobile app integration for real-time push notifications.

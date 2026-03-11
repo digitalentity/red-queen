@@ -58,7 +58,7 @@ zones:
 	t.Run("Load with ML config", func(t *testing.T) {
 		configContent := `
 ml:
-  provider: vertex-ai
+  provider: gemini-ai
   max_artifact_size: 1024
 `
 		tmpFile, err := os.CreateTemp("", "mlconfig*.yaml")
@@ -70,7 +70,7 @@ ml:
 		cfg, err := LoadConfig(tmpFile.Name())
 		require.NoError(t, err)
 
-		assert.Equal(t, "vertex-ai", cfg.ML.Provider)
+		assert.Equal(t, "gemini-ai", cfg.ML.Provider)
 		assert.Equal(t, int64(1024), cfg.ML.MaxArtifactSize)
 	})
 }

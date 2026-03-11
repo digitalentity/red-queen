@@ -1,16 +1,16 @@
-# Setting up Vertex AI (Gemini) for Red Queen
+# Setting up Gemini AI (Gemini) for Red Queen
 
-Red Queen uses Google's **Vertex AI (Gemini)** for multimodal video analysis. This requires a Google Cloud project with the Vertex AI API enabled and proper authentication configured.
+Red Queen uses Google's **Gemini AI (Gemini)** for multimodal video analysis. This requires a Google Cloud project with the Gemini AI API enabled and proper authentication configured.
 
 ## Prerequisites
 
 1.  **Google Cloud Project**: Create or use an existing project on [Google Cloud Console](https://console.cloud.google.com/).
-2.  **Enable Vertex AI API**: Go to the **Vertex AI** section in the console and enable the API for your project.
+2.  **Enable Gemini AI API**: Go to the **Gemini AI** section in the console and enable the API for your project.
 3.  **Model Selection**: By default, Red Queen is configured to use `gemini-1.5-flash`, which is optimized for speed and cost.
 
 ## Authentication (Application Default Credentials)
 
-The Vertex AI SDK uses **Application Default Credentials (ADC)** to authenticate. If you see an error like `could not find default credentials`, follow these steps:
+The Gemini AI SDK uses **Application Default Credentials (ADC)** to authenticate. If you see an error like `could not find default credentials`, follow these steps:
 
 ### Option 1: Local Development (User Credentials)
 If you are running the system locally for testing, the easiest way is to use your personal Google account credentials:
@@ -25,7 +25,7 @@ If you are running the system locally for testing, the easiest way is to use you
 For a permanent server deployment (including Docker), use a **Service Account**:
 1.  Go to **IAM & Admin > Service Accounts** in the Google Cloud Console.
 2.  Create a service account (e.g., `red-queen-analyzer`).
-3.  Grant the account the **Vertex AI User** role (`roles/aiplatform.user`).
+3.  Grant the account the **Gemini AI User** role (`roles/aiplatform.user`).
 4.  Create and download a **JSON Key** for this service account.
 5.  Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of this JSON file:
     ```bash
@@ -53,7 +53,7 @@ In your `config.yaml`, ensure the `ml` section is correctly populated:
 
 ```yaml
 ml:
-  provider: "vertex-ai"
+  provider: "gemini-ai"
   model_name: "gemini-1.5-flash" # or "gemini-1.5-pro"
   project_id: "your-project-id"
   location: "us-central1"
@@ -63,6 +63,6 @@ ml:
 
 ## Troubleshooting
 
-- **Error: `permission denied`**: Ensure the service account has the `Vertex AI User` role.
-- **Error: `api not enabled`**: Verify the Vertex AI API is enabled in the Google Cloud Console.
+- **Error: `permission denied`**: Ensure the service account has the `Gemini AI User` role.
+- **Error: `api not enabled`**: Verify the Gemini AI API is enabled in the Google Cloud Console.
 - **Quota Issues**: Check the **Quotas & System Limits** in the Google Cloud Console if you experience frequent `429 Too Many Requests` (Soft Failures).

@@ -66,7 +66,7 @@ To ensure consistency across all modules, the system uses a structured **Event**
 - **Interface**: `Analyze(ctx, Event) (Result, error)`
 - **Error Handling**: Distinguishes between **Soft** (retryable) and **Hard** (fatal) failures.
 - **Implementations**:
-    - **Vertex AI (Gemini)**: Uses Google's multimodal Gemini models for advanced video understanding. It is configured via `project_id`, `location`, and `model_name`. It uses structured JSON output for reliable parsing. See [Vertex AI Setup Guide](VERTEX_AI.md) for authentication and setup instructions.
+    - **Gemini AI (Gemini)**: Uses Google's multimodal Gemini models for advanced video understanding. It is configured via `project_id`, `location`, and `model_name`. It uses structured JSON output for reliable parsing. See [Gemini AI Setup Guide](GEMINI_AI.md) for authentication and setup instructions.
     - **Always (Debug)**: A passthrough analyzer that always returns a threat. Useful for testing storage and notification logic without external dependencies.
 
 ### 5. Artifact Storage Interface (Pluggable)

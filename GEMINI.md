@@ -1,7 +1,7 @@
 # Red Queen: Project Instructions & Development Guide
 
 ## Overview
-Red Queen is a modular, event-driven video surveillance threat analysis system written in Go. It ingests video/image uploads via FTP, analyzes them using pluggable ML providers (like Vertex AI), and triggers notifications (Webhook, Homey, Telegram) if a threat is detected.
+Red Queen is a modular, event-driven video surveillance threat analysis system written in Go. It ingests video/image uploads via FTP, analyzes them using pluggable ML providers (like Gemini AI), and triggers notifications (Webhook, Homey, Telegram) if a threat is detected.
 
 ## Project Structure
 - `cmd/red-queen/`: Main entry point and system initialization.

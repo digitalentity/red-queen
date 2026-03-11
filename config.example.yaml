@@ -25,8 +25,8 @@ zones:
 
 # Video Processing & ML Module
 ml:
-  provider: "vertex-ai" # Options: mock, vertex-ai, always
-  # Authentication: See docs/VERTEX_AI.md to set up GOOGLE_APPLICATION_CREDENTIALS.
+  provider: "gemini-ai" # Options: mock, gemini-ai, always
+  # Authentication: See docs/GEMINI_AI.md to set up GOOGLE_APPLICATION_CREDENTIALS.
   model_name: "gemini-1.5-flash"
   project_id: "your-project-id"
   location: "us-central1"

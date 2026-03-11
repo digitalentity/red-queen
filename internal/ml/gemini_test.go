@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestVertexAnalyzer_Analyze_Limit(t *testing.T) {
+func TestGeminiAnalyzer_Analyze_Limit(t *testing.T) {
 	logger := zap.NewNop()
 	
 	// Create a dummy file
@@ -31,7 +31,7 @@ func TestVertexAnalyzer_Analyze_Limit(t *testing.T) {
 	}
 
 	// Note: we pass a nil client because the check happens before it's used
-	analyzer := &VertexAnalyzer{
+	analyzer := &GeminiAnalyzer{
 		logger: logger,
 		cfg:    cfg,
 		client: nil,

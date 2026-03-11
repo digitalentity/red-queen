@@ -53,14 +53,14 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 	// 2. Initialize Analysis
 	var analyzer ml.Analyzer
 	switch cfg.ML.Provider {
-	case "vertex-ai":
-		vAnalyzer, err := ml.NewVertexAnalyzer(ctx, logger, cfg.ML)
+	case "gemini-ai":
+		gAnalyzer, err := ml.NewGeminiAnalyzer(ctx, logger, cfg.ML)
 		if err != nil {
 			cancel()
-			return nil, fmt.Errorf("failed to initialize Vertex AI analyzer: %w", err)
+			return nil, fmt.Errorf("failed to initialize Gemini AI analyzer: %w", err)
 		}
-		analyzer = vAnalyzer
-		logger.Info("Using Vertex AI analyzer", zap.String("model", cfg.ML.ModelName))
+		analyzer = gAnalyzer
+		logger.Info("Using Gemini AI analyzer", zap.String("model", cfg.ML.ModelName))
 	case "always":
 		analyzer = &ml.PassThroughAnalyzer{}
 		logger.Warn("Using 'always' ML provider - EVERY UPLOAD WILL TRIGGER A THREAT")

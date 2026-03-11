@@ -1,12 +1,12 @@
 # Red Queen: Event-Driven Video Surveillance Threat Analysis System
 
-Red Queen is a modular, event-driven video surveillance threat analysis system written in Go. It ingests video and image uploads via FTP from networked cameras, analyzes them using pluggable ML providers (such as Google Vertex AI), and triggers notifications across various channels (Webhook, Homey, Telegram, etc.) if a threat is detected.
+Red Queen is a modular, event-driven video surveillance threat analysis system written in Go. It ingests video and image uploads via FTP from networked cameras, analyzes them using pluggable ML providers (such as Google Gemini AI), and triggers notifications across various channels (Webhook, Homey, Telegram, etc.) if a threat is detected.
 
 ## 🚀 Key Features
 
 - **FTP Ingestion**: Built-in FTP server that identifies cameras by IP and maps them to human-readable **ZONES**.
 - **Pluggable ML Analysis**:
-  - **Vertex AI (Gemini)**: Leverages Google's multimodal Gemini models for advanced video understanding.
+  - **Gemini AI (Gemini)**: Leverages Google's multimodal Gemini models for advanced video understanding.
   - **Mock/Passthrough**: Providers for testing and debugging.
 - **Pluggable Artifact Storage**:
   - **Local Storage**: Organizes threat artifacts by date and zone.
@@ -98,7 +98,7 @@ The system is configured via a `config.yaml` file. Key sections include:
 
 - `ftp`: Listen address, port, and credentials for camera ingestion.
 - `zones`: Mapping of IP addresses to human-readable zone names.
-- `ml`: Choice of provider (e.g., `vertex-ai`) and model parameters.
+- `ml`: Choice of provider (e.g., `gemini-ai`) and model parameters.
 - `storage`: Where to save flagged artifacts.
 - `notifications`: List of enabled notification channels.
 

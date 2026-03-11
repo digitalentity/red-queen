@@ -16,37 +16,37 @@ import (
 	"go.uber.org/zap"
 )
 
-type VertexAnalyzer struct {
+type GeminiAnalyzer struct {
 	logger *zap.Logger
 	cfg    config.MLConfig
 	client *genai.Client
 }
 
-func NewVertexAnalyzer(ctx context.Context, logger *zap.Logger, cfg config.MLConfig) (*VertexAnalyzer, error) {
+func NewGeminiAnalyzer(ctx context.Context, logger *zap.Logger, cfg config.MLConfig) (*GeminiAnalyzer, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		Project:  cfg.ProjectID,
 		Location: cfg.Location,
 		Backend:  genai.BackendVertexAI,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vertex ai client: %w", err)
+		return nil, fmt.Errorf("failed to create gemini ai client: %w", err)
 	}
 
-	return &VertexAnalyzer{
+	return &GeminiAnalyzer{
 		logger: logger,
 		cfg:    cfg,
 		client: client,
 	}, nil
 }
 
-type vertexResponse struct {
+type geminiResponse struct {
 	IsThreat    bool     `json:"is_threat"`
 	Confidence  float64  `json:"confidence"`
 	Labels      []string `json:"labels"`
 	Description string   `json:"description"`
 }
 
-func (a *VertexAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Result, error) {
+func (a *GeminiAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Result, error) {
 	// 1. Check file size before reading to avoid OOM
 	fileInfo, err := os.Stat(event.FilePath)
 	if err != nil {
@@ -116,23 +116,23 @@ You MUST return a valid JSON object with the following structure:
 
 	res, err := a.client.Models.GenerateContent(ctx, a.cfg.ModelName, contents, config)
 	if err != nil {
-		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("vertex ai generation failed: %w", err))
+		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("gemini ai generation failed: %w", err))
 	}
 
 	if res == nil || len(res.Candidates) == 0 {
-		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("no response candidates from vertex ai"))
+		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("no response candidates from gemini ai"))
 	}
 
 	// Extract text from response safely
 	text := res.Text()
 	if text == "" {
-		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("empty response text from vertex ai"))
+		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("empty response text from gemini ai"))
 	}
 
 	// Extract JSON from response
-	var vResp vertexResponse
+	var vResp geminiResponse
 	if err := json.Unmarshal([]byte(text), &vResp); err != nil {
-		a.logger.Error("Failed to parse vertex ai JSON response", zap.Error(err), zap.String("raw", text))
+		a.logger.Error("Failed to parse gemini ai JSON response", zap.Error(err), zap.String("raw", text))
 		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("invalid JSON from model: %w", err))
 	}
 
@@ -147,7 +147,7 @@ You MUST return a valid JSON object with the following structure:
 	}, nil
 }
 
-func (a *VertexAnalyzer) detectMIMEType(filePath string) string {
+func (a *GeminiAnalyzer) detectMIMEType(filePath string) string {
 	// First, try to detect by sniffing the first 512 bytes
 	f, err := os.Open(filePath)
 	if err == nil {
@@ -179,6 +179,6 @@ func (a *VertexAnalyzer) detectMIMEType(filePath string) string {
 	}
 }
 
-func (a *VertexAnalyzer) Name() string {
-	return "vertex-ai"
+func (a *GeminiAnalyzer) Name() string {
+	return "gemini-ai"
 }
