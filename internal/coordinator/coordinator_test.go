@@ -46,13 +46,15 @@ func TestCoordinator_Process_Threat(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "File should be deleted after processing")
 
 	// Storage should have one entry
-	assert.Len(t, store.SavedEvents, 1)
-	assert.Equal(t, "1.2.3.4", store.SavedEvents[0].CameraIP)
+	savedEvents := store.GetSavedEvents()
+	assert.Len(t, savedEvents, 1)
+	assert.Equal(t, "1.2.3.4", savedEvents[0].CameraIP)
 
 	// Notifier should have one entry
-	assert.Len(t, notifier.SentAlerts, 1)
-	assert.True(t, notifier.SentAlerts[0].Result.IsThreat)
-	assert.Equal(t, "http://mock-storage.local/"+tmpFile.Name(), notifier.SentAlerts[0].ArtifactURL)
+	sentAlerts := notifier.GetSentAlerts()
+	assert.Len(t, sentAlerts, 1)
+	assert.True(t, sentAlerts[0].Result.IsThreat)
+	assert.Equal(t, "http://mock-storage.local/"+tmpFile.Name(), sentAlerts[0].ArtifactURL)
 }
 
 func TestCoordinator_Process_NoThreat(t *testing.T) {
@@ -71,8 +73,8 @@ func TestCoordinator_Process_NoThreat(t *testing.T) {
 	})
 	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Safe Zone")
 
-	assert.Len(t, store.SavedEvents, 0)
-	assert.Len(t, notifier.SentAlerts, 0)
+	assert.Len(t, store.GetSavedEvents(), 0)
+	assert.Len(t, notifier.GetSentAlerts(), 0)
 }
 
 func TestCoordinator_Process_SoftFailureRetry(t *testing.T) {
@@ -102,8 +104,8 @@ func TestCoordinator_Process_SoftFailureRetry(t *testing.T) {
 	c.Process(context.Background(), tmpFile.Name(), "1.1.1.1", "Retry Zone")
 
 	assert.Equal(t, int32(3), calls.Load(), "Should have retried 3 times")
-	assert.Len(t, store.SavedEvents, 1)
-	assert.Len(t, notifier.SentAlerts, 1)
+	assert.Len(t, store.GetSavedEvents(), 1)
+	assert.Len(t, notifier.GetSentAlerts(), 1)
 }
 
 func TestCoordinator_Process_RetainFiles(t *testing.T) {

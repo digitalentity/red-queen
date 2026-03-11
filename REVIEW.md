@@ -4,7 +4,7 @@ This document summarizes the results of a comprehensive code review of the Red Q
 
 ## 1. Concurrency & Race Conditions
 
-### Thread-unsafe Mocks (High)
+### Thread-unsafe Mocks (FIXED)
 *   **Files:** `internal/storage/mock.go`, `internal/notify/mock.go`
 *   **Issue:** The `MockProvider` and `MockNotifier` append to slices (`SavedEvents`, `SentAlerts`) without synchronization (e.g., `sync.Mutex`).
 *   **Impact:** While current tests pass, any concurrent tests or integration tests using the FTP server (which triggers `Process` in a goroutine) will trigger data races, leading to flaky tests or panics.
@@ -26,14 +26,14 @@ This document summarizes the results of a comprehensive code review of the Red Q
 *   **Issue:** `ObservedFs.OpenFile` uses `filepath.Base(name)` when creating the unique filename.
 *   **Impact:** If a camera attempts to upload to a subfolder (e.g., `/backyard/clip.mp4`), the directory structure is flattened and lost. All files are stored in the root of the `temp_dir`.
 
-### Hardcoded MIME Type (Low)
+### Hardcoded MIME Type (FIXED)
 *   **File:** `internal/ml/vertex.go`
 *   **Issue:** `VertexAnalyzer` hardcodes `MIMEType: "video/mp4"`.
 *   **Impact:** Security cameras often use different containers (H.264/H.265 raw streams, MKV). Hardcoding the MIME type may cause the Vertex AI API to reject valid video payloads.
 
 ## 3. Resource Management
 
-### Memory OOM Risk (High)
+### Memory OOM Risk (FIXED)
 *   **File:** `internal/ml/vertex.go`
 *   **Issue:** `VertexAnalyzer.Analyze` loads the entire file (up to 20MB) into memory using `os.ReadFile` before sending it to the API.
 *   **Impact:** With a high `concurrency` setting, a burst of concurrent uploads can quickly exhaust system memory, leading to Out-Of-Memory (OOM) kills.
