@@ -1,84 +1,52 @@
-# Setting up Gemini AI (Gemini) for Red Queen
+# Setting up Gemini AI for Red Queen
 
-Red Queen uses Google's **Gemini AI (Gemini)** for multimodal video analysis. This requires a Google Cloud project with the Gemini AI API enabled and proper authentication configured.
+Red Queen uses Google's **Gemini AI** for multimodal video analysis. This requires an API Key from Google AI Studio.
 
 ## Prerequisites
 
-1.  **Google Cloud Project**: Create or use an existing project on [Google Cloud Console](https://console.cloud.google.com/).
-2.  **Enable Gemini AI API**: Go to the **Gemini AI** section in the console and enable the API for your project.
+1.  **Google AI Studio Account**: Access [Google AI Studio](https://aistudio.google.com/).
+2.  **API Key**: Generate an API Key in AI Studio.
 3.  **Model Selection**: By default, Red Queen is configured to use `gemini-1.5-flash`, which is optimized for speed and cost.
 
-## Authentication (Application Default Credentials)
+## Authentication (API Key)
 
-The Gemini AI SDK uses **Application Default Credentials (ADC)** to authenticate. If you see an error like `could not find default credentials`, follow these steps:
+Red Queen uses an API Key for authentication. This is the simplest way to get started with Gemini.
 
-### Option 1: Local Development (User Credentials)
-If you are running the system locally for testing, the easiest way is to use your personal Google account credentials:
-1.  Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install).
-2.  Run the following command:
-    ```bash
-    gcloud auth application-default login
-    ```
-    This will open a browser to authenticate and store a JSON file in a well-known location that the SDK will automatically find.
-
-### Option 2: Server/Production (Service Account)
-For a permanent server deployment (including Docker), use a **Service Account**:
-1.  Go to **IAM & Admin > Service Accounts** in the Google Cloud Console.
-2.  Create a service account (e.g., `red-queen-analyzer`).
-3.  Grant the account the **Gemini AI User** role (`roles/aiplatform.user`).
-4.  Create and download a **JSON Key** for this service account.
-5.  Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of this JSON file:
-    ```bash
-    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
-    ```
-
-### Option 3: Docker Deployment
-If running inside Docker, you must mount the service account key and set the environment variable in your `docker-compose.yaml` or `docker run` command:
+1.  Generate an API Key in [Google AI Studio](https://aistudio.google.com/).
+2.  Add it directly to your `config.yaml` in the `analysis` section:
 
 ```yaml
-services:
-  red-queen:
-    image: red-queen:latest
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/config/gcp-key.json
-      - RED_QUEEN_ML_PROJECT_ID=your-project-id
-    volumes:
-      - ./secrets/gcp-key.json:/config/gcp-key.json:ro
-      - ./config.yaml:/config/config.yaml:ro
+detection:
+  analysis:
+    provider: "gemini-ai"
+    api_key: "YOUR_API_KEY_HERE"
+    model_name: "gemini-1.5-flash"
 ```
 
 ## Configuration
 
-In your `config.yaml`, ensure the `ml` section is correctly populated:
-
-```yaml
-ml:
-  provider: "gemini-ai"
-  model_name: "gemini-1.5-flash" # or "gemini-1.5-pro"
-  project_id: "your-project-id"
-  location: "us-central1"
-  threshold: 0.85
-  target_objects: ["person", "weapon"]
-  max_artifact_size: 20971520 # 20MB in bytes (default)
-```
-
-Additional optional fields:
+In your `config.yaml`, ensure the `analysis` section is correctly populated:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `endpoint` | string | Custom Vertex AI endpoint override. Leave empty to use the default regional endpoint for `location`. |
-| `api_key` | string | API key authentication (alternative to ADC). Not recommended for production; prefer service account credentials. |
+| `provider` | string | Must be set to `gemini-ai`. |
+| `api_key` | string | **Required**. Your Gemini API key from Google AI Studio. |
+| `model_name` | string | Gemini model to use (e.g., `gemini-1.5-flash` or `gemini-1.5-pro`). |
+| `threshold` | float | Confidence threshold (0.0 to 1.0) for threat detection. |
+| `target_objects` | list | List of objects or behaviors Gemini should look for. |
+| `max_artifact_size` | int | Max file size in bytes (default: 20MB). |
+| `endpoint` | string | Optional. Custom base URL for the API (BaseURL). |
 
 ## Memory Management
 
-Red Queen is designed for predictable and efficient memory usage when performing ML analysis:
+Red Queen is designed for predictable and efficient memory usage:
 
-- **Inline Artifact Processing**: For performance, artifacts are processed as 'InlineData' within the Gemini API call. This is the fastest method for the file sizes typical of security cameras.
-- **Strict Size Bounds**: The `max_artifact_size` configuration (default 20MB) prevents the system from attempting to analyze excessively large files that could cause memory pressure.
-- **Concurrency Control**: Total system memory usage is governed by the `concurrency` setting in the root configuration. This limits the number of simultaneous analysis tasks, ensuring the system remains stable even under high upload volume.
+- **Inline Artifact Processing**: Artifacts are processed as 'InlineData' within the Gemini API call for maximum performance.
+- **Strict Size Bounds**: The `max_artifact_size` setting prevents OOM issues from excessively large files.
+- **Concurrency Control**: Global `concurrency` setting limits the number of simultaneous analysis tasks.
 
 ## Troubleshooting
 
-- **Error: `permission denied`**: Ensure the service account has the `Gemini AI User` role.
-- **Error: `api not enabled`**: Verify the Gemini AI API is enabled in the Google Cloud Console.
-- **Quota Issues**: Check the **Quotas & System Limits** in the Google Cloud Console if you experience frequent `429 Too Many Requests` (Soft Failures).
+- **Error: `api_key required`**: Ensure `api_key` is set in your configuration file.
+- **Error: `invalid API key`**: Verify your key in Google AI Studio.
+- **Quota Issues**: Check your usage limits in the [Google AI Studio Console](https://aistudio.google.com/app/plan_and_billing).

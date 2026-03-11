@@ -23,13 +23,22 @@ type GeminiAnalyzer struct {
 }
 
 func NewGeminiAnalyzer(ctx context.Context, cfg config.AnalyzerConfig, logger *zap.Logger) (*GeminiAnalyzer, error) {
-	// We use BackendVertexAI to leverage Google Cloud's enterprise features 
-	// (IAM, project management, and higher quotas) while using Gemini models.
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		Project:  cfg.ProjectID,
-		Location: cfg.Location,
-		Backend:  genai.BackendVertexAI,
-	})
+	if cfg.APIKey == "" {
+		return nil, fmt.Errorf("gemini-ai provider requires 'api_key' in configuration")
+	}
+
+	clientCfg := &genai.ClientConfig{
+		APIKey:  cfg.APIKey,
+		Backend: genai.BackendGeminiAPI,
+	}
+
+	if cfg.Endpoint != "" {
+		clientCfg.HTTPOptions.BaseURL = cfg.Endpoint
+	}
+
+	logger.Info("Using Gemini AI with API Key authentication")
+
+	client, err := genai.NewClient(ctx, clientCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gemini ai client: %w", err)
 	}

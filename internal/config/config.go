@@ -70,10 +70,8 @@ type AnalyzerConfig struct {
 
 	// Gemini AI (provider: "gemini-ai")
 	ModelName       string `mapstructure:"model_name"`
-	ProjectID       string `mapstructure:"project_id"`
-	Location        string `mapstructure:"location"`
-	Endpoint        string `mapstructure:"endpoint"`
 	APIKey          string `mapstructure:"api_key"`
+	Endpoint        string `mapstructure:"endpoint"`
 	MaxArtifactSize int64  `mapstructure:"max_artifact_size"`
 }
 

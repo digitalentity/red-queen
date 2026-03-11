@@ -38,10 +38,9 @@ detection:
   # Primary analysis stage (typically cloud-based).
   analysis:
     provider: "gemini-ai" # Options: mock, gemini-ai, always
-    # Authentication: See docs/GEMINI_AI.md to set up GOOGLE_APPLICATION_CREDENTIALS.
+    # Authentication: Obtain an API Key from Google AI Studio (https://aistudio.google.com/)
+    api_key: "YOUR_GEMINI_API_KEY"
     model_name: "gemini-1.5-flash"
-    project_id: "your-project-id"
-    location: "us-central1"
     threshold: 0.85 # Gemini confidence threshold
     target_objects: ["person with weapon", "unauthorized intruder"]
     max_artifact_size: 20971520 # Max file size in bytes (20MB)
