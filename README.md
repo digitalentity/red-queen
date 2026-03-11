@@ -2,6 +2,10 @@
 
 Red Queen is a modular, event-driven video surveillance threat analysis system written in Go. It ingests video and image uploads via FTP from networked cameras, analyzes them using pluggable ML providers (such as Google Gemini AI), and triggers notifications across various channels (Webhook, Homey, Telegram, etc.) if a threat is detected.
 
+## 🎯 Motivation
+
+Most modern security cameras offer basic motion detection that is prone to false positives (shadows, insects, wind). Advanced AI features or even simple notification features are often locked behind expensive monthly cloud subscriptions or proprietary hardware. **Red Queen** was created to bridge this gap by providing an open-source, vendor-agnostic orchestration layer that turns any FTP-capable camera into an intelligent threat detection sensor using state-of-the-art multimodal AI.
+
 ## 🚀 Key Features
 
 - **FTP Ingestion**: Built-in FTP server that identifies cameras by IP and maps them to human-readable **ZONES**.
