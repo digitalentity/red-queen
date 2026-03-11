@@ -61,6 +61,14 @@ ml:
   target_objects: ["person", "weapon"]
 ```
 
+## Memory Management
+
+Red Queen is designed for predictable and efficient memory usage when performing ML analysis:
+
+- **Inline Artifact Processing**: For performance, artifacts are processed as 'InlineData' within the Gemini API call. This is the fastest method for the file sizes typical of security cameras.
+- **Strict Size Bounds**: The `max_artifact_size` configuration (default 20MB) prevents the system from attempting to analyze excessively large files that could cause memory pressure.
+- **Concurrency Control**: Total system memory usage is governed by the `concurrency` setting in the root configuration. This limits the number of simultaneous analysis tasks, ensuring the system remains stable even under high upload volume.
+
 ## Troubleshooting
 
 - **Error: `permission denied`**: Ensure the service account has the `Gemini AI User` role.

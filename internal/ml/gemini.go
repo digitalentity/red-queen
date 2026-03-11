@@ -23,6 +23,8 @@ type GeminiAnalyzer struct {
 }
 
 func NewGeminiAnalyzer(ctx context.Context, logger *zap.Logger, cfg config.MLConfig) (*GeminiAnalyzer, error) {
+	// We use BackendVertexAI to leverage Google Cloud's enterprise features 
+	// (IAM, project management, and higher quotas) while using Gemini models.
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		Project:  cfg.ProjectID,
 		Location: cfg.Location,
@@ -67,6 +69,10 @@ func (a *GeminiAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Res
 	a.logger.Debug("Detected artifact type", zap.String("mime_type", mimeType), zap.String("path", event.FilePath))
 
 	// 3. Read file into memory (Inline Data)
+	// NOTE: We intentionally read the entire file into memory here to use the 'InlineData' 
+	// capability of the Gemini API. This is the most efficient approach for the artifact 
+	// sizes typical for this system (under 20MB). Memory usage is strictly bounded by 
+	// MaxArtifactSize and system concurrency limits.
 	data, err := os.ReadFile(event.FilePath)
 	if err != nil {
 		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("failed to read file: %w", err))
