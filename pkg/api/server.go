@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"redqueen/internal/config"
@@ -13,17 +12,17 @@ import (
 )
 
 type Server struct {
-	logger *zap.Logger
-	cfg    config.APIConfig
-	storageCfg config.LocalConfig
-	server *http.Server
+	logger          *zap.Logger
+	cfg             config.APIConfig
+	artifactHandler http.Handler
+	server          *http.Server
 }
 
-func NewServer(logger *zap.Logger, cfg config.APIConfig, storageCfg config.LocalConfig) *Server {
+func NewServer(logger *zap.Logger, cfg config.APIConfig, artifactHandler http.Handler) *Server {
 	return &Server{
-		logger: logger,
-		cfg:    cfg,
-		storageCfg: storageCfg,
+		logger:          logger,
+		cfg:             cfg,
+		artifactHandler: artifactHandler,
 	}
 }
 
@@ -36,10 +35,9 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	// Artifacts endpoint
-	// This serves files from the storage root_path
-	// URL pattern: /artifacts/{date}/{zone}/{filename}
-	fs := http.FileServer(http.Dir(s.storageCfg.RootPath))
-	mux.Handle("/artifacts/", http.StripPrefix("/artifacts/", fs))
+	if s.artifactHandler != nil {
+		mux.Handle("/artifacts/", http.StripPrefix("/artifacts/", s.artifactHandler))
+	}
 
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -56,11 +54,6 @@ func (s *Server) Start() error {
 	}
 
 	s.logger.Info("REST API starting", zap.Int("port", s.cfg.Port))
-	
-	// Check if storage directory exists
-	if _, err := os.Stat(s.storageCfg.RootPath); os.IsNotExist(err) {
-		s.logger.Warn("Storage root path does not exist", zap.String("path", s.storageCfg.RootPath))
-	}
 
 	return s.server.ListenAndServe()
 }

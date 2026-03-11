@@ -18,13 +18,15 @@ type WebhookNotifier struct {
 	client *http.Client
 }
 
-func NewWebhookNotifier(cfg config.NotifyConfig) *WebhookNotifier {
+func NewWebhookNotifier(cfg config.NotifyConfig, client *http.Client) *WebhookNotifier {
 	return &WebhookNotifier{
-		cfg: cfg,
-		client: &http.Client{
-			Timeout: 5 * time.Second,
-		},
+		cfg:    cfg,
+		client: client,
 	}
+}
+
+func (n *WebhookNotifier) Type() string {
+	return "webhook"
 }
 
 type WebhookPayload struct {

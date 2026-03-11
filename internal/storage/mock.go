@@ -13,6 +13,10 @@ type MockProvider struct {
 	SavedEvents []*models.Event
 }
 
+func (m *MockProvider) Type() string {
+	return "mock"
+}
+
 func (m *MockProvider) Save(ctx context.Context, event *models.Event) (string, error) {
 	m.mu.Lock()
 	m.SavedEvents = append(m.SavedEvents, event)

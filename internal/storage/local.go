@@ -21,6 +21,10 @@ func NewLocalStorage(cfg config.LocalConfig) *LocalStorage {
 	}
 }
 
+func (s *LocalStorage) Type() string {
+	return "local"
+}
+
 func (s *LocalStorage) Save(ctx context.Context, event *models.Event) (string, error) {
 	// 1. Prepare destination path
 	// Structure: root_path/YYYY-MM-DD/zone/eventID_filename

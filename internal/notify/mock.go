@@ -20,6 +20,10 @@ type MockNotifier struct {
 	SentAlerts []SentAlert
 }
 
+func (m *MockNotifier) Type() string {
+	return "mock"
+}
+
 func (m *MockNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {
 	m.mu.Lock()
 	m.SentAlerts = append(m.SentAlerts, SentAlert{Event: event, Result: result, ArtifactURL: artifactURL})

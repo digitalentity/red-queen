@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"redqueen/internal/config"
 	"redqueen/internal/ml"
@@ -21,9 +20,10 @@ import (
 type TelegramNotifier struct {
 	cfg    config.NotifyConfig
 	apiURL string // Added for testing
+	client *http.Client
 }
 
-func NewTelegramNotifier(cfg config.NotifyConfig) *TelegramNotifier {
+func NewTelegramNotifier(cfg config.NotifyConfig, client *http.Client) *TelegramNotifier {
 	apiURL := "https://api.telegram.org"
 	if cfg.URL != "" {
 		apiURL = cfg.URL
@@ -31,7 +31,12 @@ func NewTelegramNotifier(cfg config.NotifyConfig) *TelegramNotifier {
 	return &TelegramNotifier{
 		cfg:    cfg,
 		apiURL: apiURL,
+		client: client,
 	}
+}
+
+func (n *TelegramNotifier) Type() string {
+	return "telegram"
 }
 
 func (n *TelegramNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {
@@ -92,7 +97,7 @@ func (n *TelegramNotifier) sendMedia(ctx context.Context, event *models.Event, c
 	}
 
 	// Add Caption
-	if err := writer.WriteField("caption", caption); err != nil {
+	if err := writer.WriteField("caption", n.truncate(caption, 1024)); err != nil {
 		return err
 	}
 
@@ -121,8 +126,7 @@ func (n *TelegramNotifier) sendMedia(ctx context.Context, event *models.Event, c
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -139,7 +143,7 @@ func (n *TelegramNotifier) sendMedia(ctx context.Context, event *models.Event, c
 func (n *TelegramNotifier) sendMessage(ctx context.Context, text string) error {
 	payload := map[string]interface{}{
 		"chat_id":    n.cfg.ChatID,
-		"text":       text,
+		"text":       n.truncate(text, 4096),
 		"parse_mode": "MarkdownV2",
 	}
 
@@ -155,8 +159,7 @@ func (n *TelegramNotifier) sendMessage(ctx context.Context, text string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -176,4 +179,11 @@ func (n *TelegramNotifier) escapeMarkdown(text string) string {
 		"_", "\\_", "*", "\\*", "[", "\\[", "]", "\\]", "(", "\\(", ")", "\\)", "~", "\\~", "`", "\\`", ">", "\\>", "#", "\\#", "+", "\\+", "-", "\\-", "=", "\\=", "|", "\\|", "{", "\\{", "}", "\\}", ".", "\\.", "!", "\\!",
 	)
 	return replacer.Replace(text)
+}
+
+func (n *TelegramNotifier) truncate(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit-3] + "..."
 }

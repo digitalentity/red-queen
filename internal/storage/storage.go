@@ -8,4 +8,5 @@ import (
 
 type Provider interface {
 	Save(ctx context.Context, event *models.Event) (string, error)
+	Type() string
 }

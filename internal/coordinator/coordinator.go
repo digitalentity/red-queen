@@ -18,8 +18,9 @@ import (
 
 // CoordinatorConfig holds the configuration for the Coordinator.
 type CoordinatorConfig struct {
-	RetainFiles bool
-	Concurrency int
+	RetainFiles    bool
+	Concurrency    int
+	ProcessTimeout time.Duration
 }
 
 // Coordinator orchestrates the lifecycle of a surveillance event.
@@ -42,6 +43,9 @@ func NewCoordinator(
 ) *Coordinator {
 	if cfg.Concurrency <= 0 {
 		cfg.Concurrency = 1
+	}
+	if cfg.ProcessTimeout <= 0 {
+		cfg.ProcessTimeout = 5 * time.Minute
 	}
 	return &Coordinator{
 		logger:    logger,
@@ -82,6 +86,9 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	log.Info("Starting event processing")
 
+	processCtx, cancel := context.WithTimeout(ctx, c.config.ProcessTimeout)
+	defer cancel()
+
 	// Ensure cleanup at the end
 	defer func() {
 		if c.config.RetainFiles {
@@ -99,7 +106,7 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 	// 1. Analyze with Retry Logic
 	mlStart := time.Now()
 	analyzerName := c.analyzer.Name()
-	result, err := c.analyzeWithRetry(ctx, event, log)
+	result, err := c.analyzeWithRetry(processCtx, event, log)
 	metrics.MLAnalysisDuration.WithLabelValues(analyzerName, event.Zone).Observe(time.Since(mlStart).Seconds())
 
 	if err != nil {
@@ -119,22 +126,24 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 	metrics.MLThreatsDetected.WithLabelValues(event.Zone).Inc()
 
 	// 3. Store Artifact
-	artifactURL, err := c.storage.Save(ctx, event)
+	artifactURL, err := c.storage.Save(processCtx, event)
+	storageType := c.storage.Type()
 	if err != nil {
-		log.Error("Failed to store threat artifact", zap.Error(err))
-		metrics.StorageOperations.WithLabelValues("local", "error").Inc()
+		log.Error("Failed to store threat artifact", zap.Error(err), zap.String("storage_type", storageType))
+		metrics.StorageOperations.WithLabelValues(storageType, "error").Inc()
 		// We continue to notify even if storage fails, though the URL will be empty/invalid
 	} else {
-		metrics.StorageOperations.WithLabelValues("local", "success").Inc()
+		metrics.StorageOperations.WithLabelValues(storageType, "success").Inc()
 	}
 
 	// 4. Notify
 	for _, n := range c.notifiers {
-		if err := n.Send(ctx, event, result, artifactURL); err != nil {
-			log.Error("Notification failed", zap.Error(err))
-			metrics.NotificationsSent.WithLabelValues("notifier", "error").Inc()
+		notifierType := n.Type()
+		if err := n.Send(processCtx, event, result, artifactURL); err != nil {
+			log.Error("Notification failed", zap.Error(err), zap.String("notifier_type", notifierType))
+			metrics.NotificationsSent.WithLabelValues(notifierType, "error").Inc()
 		} else {
-			metrics.NotificationsSent.WithLabelValues("notifier", "success").Inc()
+			metrics.NotificationsSent.WithLabelValues(notifierType, "success").Inc()
 		}
 	}
 

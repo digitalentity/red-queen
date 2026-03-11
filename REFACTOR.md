@@ -1,63 +1,35 @@
-# Red Queen: Refactoring & Improvements
+# Red Queen: Code Audit & Improvements
 
-Based on a comprehensive review of the codebase, the following issues have been identified. This document outlines proposed fixes to improve system stability, performance, and maintainability.
+This document tracks the results of system audits, identifies areas for improvement, and records completed refactoring tasks.
 
-## 1. High Priority: Memory Management in ML Analysis (Resolved)
-**Issue:** `internal/ml/vertex.go` previously loaded files without limits, risking OOM crashes for large artifacts.
-**Fix:** 
-- Added `MaxArtifactSize` to `MLConfig` to enforce a hard limit on artifact size before processing.
-- Implemented file size check and MIME type detection in `VertexAnalyzer`.
-- Using `InlineData` for low-latency analysis of small artifacts as recommended by Gemini API for current use cases.
-- **Future Note:** If larger videos (>20MB) are required, the Files API (streaming) should be re-implemented.
+## 1. Open Issues & Future Refinements
 
-## 2. High Priority: Lack of Concurrency Control
-**Issue:** The FTP server triggers `Coordinator.Process` in a new goroutine for every file upload without any limits.
-**Impact:** System resources (CPU, Memory, Network) can be exhausted by a burst of uploads. Vertex AI API quotas may also be quickly exceeded.
+### 1.1. Medium Priority: Memory Pressure in ML Analysis
+**Issue:** `VertexAnalyzer.Analyze` currently reads the entire artifact into memory (`os.ReadFile`) before sending it to the Gemini API. 
+**Risk:** While protected by `MaxArtifactSize` (default 20MB), this approach can cause memory spikes under high concurrency.
 **Proposed Fix:** 
-- Utilize the `Concurrency` field in `Config` (currently unused).
-- Implement a worker pool or use a semaphore (e.g., `chan struct{}`) in the `Coordinator` to limit the number of concurrent analysis tasks.
+- Implement streaming for the Vertex AI Files API for larger artifacts.
+- Explore processing video in segments or using lower-resolution proxies if cloud costs or memory become a bottleneck.
 
-## 3. High Priority: Insecure/Unreliable FTP Temp Naming (Resolved)
-**Issue:** `internal/ftp/server.go` previously generated unique names for uploaded files using `os.Getpid() + original_name`.
-**Fix:** 
-- Implemented a robust temporary naming scheme: `IP-UUID-original_name.ext`.
-- This ensures global uniqueness, easy traceability of the source camera, and preservation of the original file context while aiding in MIME type detection.
-
-
-## 4. Medium Priority: Metric Labeling Imprecision
-**Issue:** `internal/metrics/metrics.go` defines labels like `provider` and `status`, but the `Coordinator` uses hardcoded strings like `"notifier"` or `"local"` instead of the actual implementation type.
-**Impact:** Metrics in Prometheus/Grafana will be aggregated incorrectly, making it impossible to distinguish between different notifiers (e.g., Telegram vs. Webhook failure rates).
+### 1.2. Low Priority: Advanced Camera Protocol Support
 **Proposed Fix:** 
-- Add a `Name()` or `Type()` method to `Notifier`, `Analyzer`, and `Storage` interfaces.
-- Use these dynamic values when recording metrics in the `Coordinator`.
+- See `FUTURE_WORK.md` for RTSP/RTMP ingestion and ONVIF integration plans.
 
-## 5. Medium Priority: Context & Timeout Management
-**Issue:** `Coordinator.Process` is invoked with `context.Background()`.
-**Impact:** Analysis or notification tasks could hang indefinitely if the external service (Vertex AI, Telegram) doesn't respond, blocking system resources.
-**Proposed Fix:** 
-- Wrap the context with a timeout (e.g., 5 minutes) in `Coordinator.Process`.
-- Ensure all downstream calls (ML, Storage, Notifiers) respect this context.
+## 2. Completed Improvements
 
-## 6. Medium Priority: Error Classification in Coordinator
-**Issue:** In `analyzeWithRetry`, unknown errors default to `backoff.Permanent(err)`.
-**Impact:** Transient network errors that are not explicitly wrapped as `ErrorSoft` will cause the analysis to fail immediately instead of retrying.
-**Proposed Fix:** 
-- Default to `ErrorSoft` for unknown errors, or implement a check for common retryable network errors (e.g., `net.Error.Temporary()`).
+### 2.1. Concurrency & Lifecycle Management
+- **Concurrency Control**: Implemented a semaphore (`chan struct{}`) in the `Coordinator` using the `Concurrency` configuration field to prevent resource exhaustion during bursts of uploads.
+- **Structured App Initialization**: Refactored the monolithic `main.go` into a structured `App` component in `internal/app`. This improved testability and established a clear lifecycle (`New`, `Start`, `Stop`).
+- **Context & Timeout Management**: Added `ProcessTimeout` to ensure the entire analysis-to-notification pipeline is bound by a deadline (default 5m), preventing hanging goroutines.
 
-## 7. Medium Priority: MIME Type Handling
-**Issue:** `VertexAnalyzer` hardcodes `MIMEType: "video/mp4"`.
-**Impact:** Analysis will fail or be inaccurate if a camera sends JPEG images or different video formats (e.g., `.mov`, `.mkv`).
-**Proposed Fix:** 
-- Use `http.DetectContentType` or check file extensions to determine the correct MIME type before calling the ML provider.
+### 2.2. Error Handling & Observability
+- **Metric Labeling Precision**: Added `Type() string` to `Notifier` and `Provider` interfaces. The `Coordinator` now uses these dynamic values for Prometheus labels, enabling granular monitoring of specific backends.
+- **Error Wrapping**: Implemented `Unwrap()` on `ml.AnalysisError`, allowing for idiomatic error inspection using `errors.Is` and `errors.As`.
+- **Improved Retry Logic**: Standardized on exponential backoff for soft failures in ML analysis, while respecting context deadlines.
 
-## 8. Medium Priority: Monolithic `main.go`
-**Issue:** `cmd/red-queen/main.go` contains all initialization logic.
-**Impact:** Difficult to unit test the system setup and main lifecycle.
-**Proposed Fix:** 
-- Refactor the logic into a `System` or `App` struct with `New()`, `Start()`, and `Stop()` methods.
-
-## 9. Low Priority: Standardize HTTP Clients
-**Issue:** Multiple notifiers create their own `http.Client` with hardcoded timeouts.
-**Impact:** Inconsistent behavior and difficult to tune global timeouts or proxy settings.
-**Proposed Fix:** 
-- Create a shared, configurable HTTP client or use a factory pattern to provide pre-configured clients to notifiers.
+### 2.3. System Integration & Reliability
+- **REST API Decoupling**: Decoupled `pkg/api/server.go` from `config.LocalConfig`. It now accepts a generic `http.Handler`, allowing it to support various storage providers (Local, S3, etc.) without code changes.
+- **Standardized HTTP Clients**: Implemented a shared, configurable `http.Client` injected into all notifiers, ensuring consistent timeouts and centralized network configuration.
+- **Telegram Reliability**: Implemented automatic truncation of captions (1024 chars) and text messages (4096 chars) in `TelegramNotifier` to comply with API limits.
+- **MIME Type Detection**: Implemented robust MIME type sniffing and extension fallbacks in `VertexAnalyzer` to support various image and video formats.
+- **Secure FTP Naming**: Implemented a unique, traceable naming scheme (`IP-UUID-filename`) for temporary FTP uploads.

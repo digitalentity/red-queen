@@ -36,7 +36,7 @@ func TestWebhookNotifier_Send(t *testing.T) {
 		Enabled: true,
 		URL:     ts.URL,
 	}
-	notifier := NewWebhookNotifier(cfg)
+	notifier := NewWebhookNotifier(cfg, http.DefaultClient)
 
 	// Setup test data
 	event := &models.Event{
@@ -73,7 +73,7 @@ func TestWebhookNotifier_ErrorStatus(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	notifier := NewWebhookNotifier(config.NotifyConfig{URL: ts.URL})
+	notifier := NewWebhookNotifier(config.NotifyConfig{URL: ts.URL}, http.DefaultClient)
 	err := notifier.Send(context.Background(), &models.Event{}, &ml.Result{}, "")
 	
 	assert.Error(t, err)

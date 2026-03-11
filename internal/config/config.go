@@ -5,15 +5,22 @@ import (
 )
 
 type Config struct {
-	LogLevel      string          `mapstructure:"log_level"`
-	Concurrency   int             `mapstructure:"concurrency"`
-	FTP           FTPConfig       `mapstructure:"ftp"`
-	Zones         []ZoneConfig    `mapstructure:"zones"`
-	ML            MLConfig        `mapstructure:"ml"`
-	Storage       StorageConfig   `mapstructure:"storage"`
-	Notifications []NotifyConfig  `mapstructure:"notifications"`
-	API           APIConfig       `mapstructure:"api"`
+	LogLevel       string           `mapstructure:"log_level"`
+	Concurrency    int              `mapstructure:"concurrency"`
+	ProcessTimeout string           `mapstructure:"process_timeout"` // e.g. "5m"
+	HTTPClient     HTTPClientConfig `mapstructure:"http_client"`
+	FTP            FTPConfig        `mapstructure:"ftp"`
+	Zones          []ZoneConfig     `mapstructure:"zones"`
+	ML             MLConfig         `mapstructure:"ml"`
+	Storage        StorageConfig    `mapstructure:"storage"`
+	Notifications  []NotifyConfig   `mapstructure:"notifications"`
+	API            APIConfig        `mapstructure:"api"`
 }
+
+type HTTPClientConfig struct {
+	Timeout string `mapstructure:"timeout"` // Default 30s
+}
+
 
 type FTPConfig struct {
 	ListenAddress string `mapstructure:"listen_address"`

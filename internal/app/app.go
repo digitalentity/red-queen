@@ -1,0 +1,197 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
+
+	"redqueen/internal/config"
+	"redqueen/internal/coordinator"
+	"redqueen/internal/ftp"
+	"redqueen/internal/ml"
+	"redqueen/internal/notify"
+	"redqueen/internal/storage"
+	"redqueen/internal/zone"
+	"redqueen/pkg/api"
+
+	"go.uber.org/zap"
+)
+
+// App represents the entire Red Queen application lifecycle.
+type App struct {
+	logger      *zap.Logger
+	cfg         *config.Config
+	httpClient  *http.Client
+	ftpServer   *ftp.Server
+	apiServer   *api.Server
+	coordinator *coordinator.Coordinator
+	cancel      context.CancelFunc
+}
+
+// New creates and initializes a new App instance.
+func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// 0. Initialize Shared HTTP Client
+	httpTimeout := 30 * time.Second
+	if cfg.HTTPClient.Timeout != "" {
+		if d, err := time.ParseDuration(cfg.HTTPClient.Timeout); err == nil {
+			httpTimeout = d
+		} else {
+			logger.Warn("Failed to parse http_client.timeout, using default 30s", zap.Error(err))
+		}
+	}
+	httpClient := &http.Client{
+		Timeout: httpTimeout,
+	}
+
+	// 1. Initialize Domain Components
+	zoneManager := zone.NewManager(cfg.Zones)
+
+	// 2. Initialize Analysis
+	var analyzer ml.Analyzer
+	switch cfg.ML.Provider {
+	case "vertex-ai":
+		vAnalyzer, err := ml.NewVertexAnalyzer(ctx, logger, cfg.ML)
+		if err != nil {
+			cancel()
+			return nil, fmt.Errorf("failed to initialize Vertex AI analyzer: %w", err)
+		}
+		analyzer = vAnalyzer
+		logger.Info("Using Vertex AI analyzer", zap.String("model", cfg.ML.ModelName))
+	case "always":
+		analyzer = &ml.PassThroughAnalyzer{}
+		logger.Warn("Using 'always' ML provider - EVERY UPLOAD WILL TRIGGER A THREAT")
+	default:
+		logger.Warn("Unknown or no ML provider configured, using mock")
+		analyzer = &ml.MockAnalyzer{}
+	}
+
+	// 3. Initialize Storage
+	var storageProvider storage.Provider
+	var artifactHandler http.Handler
+	switch cfg.Storage.Provider {
+	case "local":
+		storageProvider = storage.NewLocalStorage(cfg.Storage.Local)
+		artifactHandler = http.FileServer(http.Dir(cfg.Storage.Local.RootPath))
+		logger.Info("Using local storage", zap.String("root_path", cfg.Storage.Local.RootPath))
+	case "s3":
+		// storageProvider = storage.NewS3Storage(cfg.Storage.S3)
+		logger.Warn("S3 storage provider not yet implemented, using mock")
+		storageProvider = &storage.MockProvider{}
+		artifactHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "S3 artifact serving not yet implemented", http.StatusNotImplemented)
+		})
+	default:
+		logger.Warn("Unknown or no storage provider configured, using mock")
+		storageProvider = &storage.MockProvider{}
+		artifactHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Artifact serving not available for this provider", http.StatusNotFound)
+		})
+	}
+
+	// 4. Initialize Notifications
+	var notifiers []notify.Notifier
+	for _, ncfg := range cfg.Notifications {
+		if !ncfg.Enabled {
+			continue
+		}
+
+		switch ncfg.Type {
+		case "webhook":
+			notifiers = append(notifiers, notify.NewWebhookNotifier(ncfg, httpClient))
+			logger.Info("Enabled webhook notifier", zap.String("url", ncfg.URL))
+		case "homey":
+			notifiers = append(notifiers, notify.NewHomeyNotifier(ncfg, httpClient))
+			logger.Info("Enabled Homey notifier", zap.String("homey_id", ncfg.HomeyID), zap.String("event", ncfg.Event))
+		case "telegram":
+			notifiers = append(notifiers, notify.NewTelegramNotifier(ncfg, httpClient))
+			logger.Info("Enabled Telegram notifier", zap.Int64("chat_id", ncfg.ChatID))
+		default:
+			logger.Warn("Unknown notifier type", zap.String("type", ncfg.Type))
+		}
+	}
+
+	if len(notifiers) == 0 {
+		logger.Warn("No notifiers enabled, using mock")
+		notifiers = append(notifiers, &notify.MockNotifier{})
+	}
+
+	// 5. Initialize Coordinator
+	processTimeout := 5 * time.Minute
+	if cfg.ProcessTimeout != "" {
+		if d, err := time.ParseDuration(cfg.ProcessTimeout); err == nil {
+			processTimeout = d
+		} else {
+			logger.Warn("Failed to parse process_timeout, using default 5m", zap.Error(err))
+		}
+	}
+
+	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, coordinator.CoordinatorConfig{
+		RetainFiles:    cfg.FTP.RetainFiles,
+		Concurrency:    cfg.Concurrency,
+		ProcessTimeout: processTimeout,
+	})
+
+	// 6. Initialize Servers
+	ftpServer := ftp.NewServer(ctx, logger, cfg.FTP, orchestrator, zoneManager)
+	apiServer := api.NewServer(logger, cfg.API, artifactHandler)
+
+	return &App{
+		logger:      logger,
+		cfg:         cfg,
+		httpClient:  httpClient,
+		ftpServer:   ftpServer,
+		apiServer:   apiServer,
+		coordinator: orchestrator,
+		cancel:      cancel,
+	}, nil
+}
+
+// Start starts the application services in background goroutines.
+func (a *App) Start() error {
+	a.logger.Info("Starting Red Queen system services")
+
+	// Start FTP server
+	go func() {
+		if err := a.ftpServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.logger.Fatal("FTP server failed", zap.Error(err))
+		}
+	}()
+
+	// Start REST API
+	go func() {
+		if err := a.apiServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.logger.Fatal("REST API failed", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+// Stop gracefully shuts down all application services.
+func (a *App) Stop() error {
+	a.logger.Info("Shutting down Red Queen...")
+	a.cancel()
+
+	var errs []error
+	if err := a.ftpServer.Stop(); err != nil {
+		errs = append(errs, fmt.Errorf("error during FTP server shutdown: %w", err))
+	}
+
+	if err := a.apiServer.Stop(); err != nil {
+		errs = append(errs, fmt.Errorf("error during API server shutdown: %w", err))
+	}
+
+	if len(errs) > 0 {
+		for _, err := range errs {
+			a.logger.Error("Shutdown error", zap.Error(err))
+		}
+		return errors.New("errors occurred during shutdown")
+	}
+
+	a.logger.Info("Shutdown complete")
+	return nil
+}

@@ -43,7 +43,7 @@ func TestHomeyNotifier_Send(t *testing.T) {
 		HomeyID: "my-homey-id",
 		Event:   "alert-event",
 	}
-	notifier := NewHomeyNotifier(cfg)
+	notifier := NewHomeyNotifier(cfg, http.DefaultClient)
 	notifier.baseURL = ts.URL
 
 	// Send notification
@@ -79,7 +79,7 @@ func TestHomeyNotifier_SendLocal(t *testing.T) {
 		URL:   ts.URL,
 		Event: "threat-detected",
 	}
-	notifier := NewHomeyNotifier(cfg)
+	notifier := NewHomeyNotifier(cfg, http.DefaultClient)
 
 	// Send notification
 	err := notifier.Send(context.Background(), event, result, artifactURL)

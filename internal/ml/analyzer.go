@@ -32,6 +32,8 @@ type AnalysisError struct {
 
 func (e *AnalysisError) Error() string { return e.Err.Error() }
 
+func (e *AnalysisError) Unwrap() error { return e.Err }
+
 func NewAnalysisError(t ErrorType, err error) *AnalysisError {
 	return &AnalysisError{Type: t, Err: err}
 }

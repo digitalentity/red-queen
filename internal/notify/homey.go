@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"redqueen/internal/config"
 	"redqueen/internal/ml"
@@ -20,7 +19,7 @@ type HomeyNotifier struct {
 	client  *http.Client
 }
 
-func NewHomeyNotifier(cfg config.NotifyConfig) *HomeyNotifier {
+func NewHomeyNotifier(cfg config.NotifyConfig, client *http.Client) *HomeyNotifier {
 	baseURL := HomeyCloudBaseURL
 	if cfg.URL != "" {
 		baseURL = cfg.URL
@@ -28,10 +27,12 @@ func NewHomeyNotifier(cfg config.NotifyConfig) *HomeyNotifier {
 	return &HomeyNotifier{
 		cfg:     cfg,
 		baseURL: baseURL,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client:  client,
 	}
+}
+
+func (n *HomeyNotifier) Type() string {
+	return "homey"
 }
 
 func (n *HomeyNotifier) Send(ctx context.Context, event *models.Event, result *ml.Result, artifactURL string) error {

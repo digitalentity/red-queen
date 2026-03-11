@@ -70,6 +70,7 @@ func TestTelegramNotifier_Send_Fallback(t *testing.T) {
 			ChatID: 12345,
 		},
 		apiURL: server.URL,
+		client: http.DefaultClient,
 	}
 
 	event := &models.Event{
@@ -104,6 +105,7 @@ func TestTelegramNotifier_Send_Success(t *testing.T) {
 			ChatID: 12345,
 		},
 		apiURL: server.URL,
+		client: http.DefaultClient,
 	}
 
 	event := &models.Event{
