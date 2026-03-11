@@ -49,8 +49,12 @@ func (s *Server) Start() error {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	s.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.cfg.Port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", s.cfg.Port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	s.logger.Info("REST API starting", zap.Int("port", s.cfg.Port))

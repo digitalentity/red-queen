@@ -58,10 +58,6 @@ notifications:
     enabled: false
     url: "http://192.168.1.50"
     event: "threat_detected"
-  - type: "slack"
-    enabled: false
-    channel: "#security-alerts"
-    token: "xoxb-..."
 
 # Future: Zone State REST API
 api:

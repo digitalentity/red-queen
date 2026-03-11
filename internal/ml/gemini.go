@@ -109,7 +109,7 @@ You MUST return a valid JSON object with the following structure:
 		},
 	}
 
-	config := &genai.GenerateContentConfig{
+	genCfg := &genai.GenerateContentConfig{
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
 				{
@@ -120,7 +120,7 @@ You MUST return a valid JSON object with the following structure:
 		ResponseMIMEType: "application/json",
 	}
 
-	res, err := a.client.Models.GenerateContent(ctx, a.cfg.ModelName, contents, config)
+	res, err := a.client.Models.GenerateContent(ctx, a.cfg.ModelName, contents, genCfg)
 	if err != nil {
 		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("gemini ai generation failed: %w", err))
 	}

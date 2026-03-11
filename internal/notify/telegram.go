@@ -64,8 +64,8 @@ func (n *TelegramNotifier) formatMessage(event *models.Event, result *ml.Result,
 	
 	sb.WriteString(fmt.Sprintf("*Time:* %s\n", n.escapeMarkdown(event.Timestamp.Format("2006-01-02 15:04:05"))))
 
-	if n.cfg.URL != "" && artifactURL != "" {
-		fullURL := strings.TrimSuffix(n.cfg.URL, "/") + artifactURL
+	if n.cfg.ArtifactBaseURL != "" && artifactURL != "" {
+		fullURL := strings.TrimSuffix(n.cfg.ArtifactBaseURL, "/") + artifactURL
 		sb.WriteString(fmt.Sprintf("\n[View Full Resolution](%s)", fullURL))
 	}
 
@@ -182,8 +182,9 @@ func (n *TelegramNotifier) escapeMarkdown(text string) string {
 }
 
 func (n *TelegramNotifier) truncate(s string, limit int) string {
-	if len(s) <= limit {
+	runes := []rune(s)
+	if len(runes) <= limit {
 		return s
 	}
-	return s[:limit-3] + "..."
+	return string(runes[:limit-3]) + "..."
 }

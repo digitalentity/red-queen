@@ -98,26 +98,14 @@ func TestMainDriver_RegistryIsolation(t *testing.T) {
 	}
 
 	// Two IPs get different registries
-	reg1 := driver.getRegistry("1.1.1.1")
-	reg2 := driver.getRegistry("2.2.2.2")
-	
+	reg1 := driver.getOrCreateRegistry("1.1.1.1")
+	reg2 := driver.getOrCreateRegistry("2.2.2.2")
+
 	assert.NotNil(t, reg1)
 	assert.NotNil(t, reg2)
 	assert.NotSame(t, reg1, reg2)
-	
-	// Same IP gets same registry
-	reg1Again := driver.getRegistry("1.1.1.1")
-	assert.Same(t, reg1, reg1Again)
-}
 
-// Helper to access private registries field in tests or we can add this to the driver
-func (d *MainDriver) getRegistry(ip string) *VirtualRegistry {
-	d.registriesMu.Lock()
-	defer d.registriesMu.Unlock()
-	if r, ok := d.registries[ip]; ok {
-		return r
-	}
-	r := NewVirtualRegistry()
-	d.registries[ip] = r
-	return r
+	// Same IP gets same registry
+	reg1Again := driver.getOrCreateRegistry("1.1.1.1")
+	assert.Same(t, reg1, reg1Again)
 }

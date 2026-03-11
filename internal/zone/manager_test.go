@@ -2,8 +2,10 @@ package zone
 
 import (
 	"testing"
-	"redqueen/internal/config"
+
 	"github.com/stretchr/testify/assert"
+
+	"redqueen/internal/config"
 )
 
 func TestZoneManager(t *testing.T) {

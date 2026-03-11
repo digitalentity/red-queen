@@ -128,14 +128,7 @@ func (d *MainDriver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ft
 		return nil, err
 	}
 
-	// Get or create registry for this IP
-	d.registriesMu.Lock()
-	registry, exists := d.registries[ipStr]
-	if !exists {
-		registry = NewVirtualRegistry()
-		d.registries[ipStr] = registry
-	}
-	d.registriesMu.Unlock()
+	registry := d.getOrCreateRegistry(ipStr)
 
 	// We use the temp directory as the root for this camera
 	baseFs := afero.NewBasePathFs(afero.NewOsFs(), d.config.TempDir)
@@ -156,6 +149,17 @@ func (d *MainDriver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ft
 		tempDir:     d.config.TempDir,
 		registry:    registry,
 	}, nil
+}
+
+func (d *MainDriver) getOrCreateRegistry(ip string) *VirtualRegistry {
+	d.registriesMu.Lock()
+	defer d.registriesMu.Unlock()
+	if r, ok := d.registries[ip]; ok {
+		return r
+	}
+	r := NewVirtualRegistry()
+	d.registries[ip] = r
+	return r
 }
 
 func (d *MainDriver) GetTLSConfig() (*tls.Config, error) {
@@ -374,4 +378,4 @@ func (f *fakeFileInfo) Mode() os.FileMode  {
 }
 func (f *fakeFileInfo) ModTime() time.Time { return f.modTime }
 func (f *fakeFileInfo) IsDir() bool        { return f.isDir }
-func (f *fakeFileInfo) Sys() interface{}   { return nil }
+func (f *fakeFileInfo) Sys() any           { return nil }

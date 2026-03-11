@@ -2,18 +2,19 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
-
-	"redqueen/internal/ml"
-	"redqueen/internal/models"
-	"redqueen/internal/metrics"
-	"redqueen/internal/notify"
-	"redqueen/internal/storage"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"redqueen/internal/metrics"
+	"redqueen/internal/ml"
+	"redqueen/internal/models"
+	"redqueen/internal/notify"
+	"redqueen/internal/storage"
 )
 
 // CoordinatorConfig holds the configuration for the Coordinator.
@@ -162,7 +163,8 @@ func (c *Coordinator) analyzeWithRetry(ctx context.Context, event *models.Event,
 		}
 
 		// Check if it's our custom AnalysisError
-		if aErr, ok := err.(*ml.AnalysisError); ok {
+		var aErr *ml.AnalysisError
+		if errors.As(err, &aErr) {
 			if aErr.Type == ml.ErrorHard {
 				return backoff.Permanent(aErr)
 			}

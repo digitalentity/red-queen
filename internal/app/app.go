@@ -156,7 +156,7 @@ func (a *App) Start() error {
 
 	// Start FTP server
 	go func() {
-		if err := a.ftpServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := a.ftpServer.Start(); err != nil {
 			a.logger.Fatal("FTP server failed", zap.Error(err))
 		}
 	}()

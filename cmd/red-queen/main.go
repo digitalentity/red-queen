@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"go.uber.org/zap"
+
 	"redqueen/internal/app"
 	"redqueen/internal/config"
 )
@@ -28,12 +30,12 @@ func main() {
 	// 3. Initialize App
 	application, err := app.New(logger, cfg)
 	if err != nil {
-		logger.Fatal("Failed to initialize application")
+		logger.Fatal("Failed to initialize application", zap.Error(err))
 	}
 
 	// 4. Start App
 	if err := application.Start(); err != nil {
-		logger.Fatal("Failed to start application")
+		logger.Fatal("Failed to start application", zap.Error(err))
 	}
 
 	// 5. Wait for Signal
@@ -43,6 +45,6 @@ func main() {
 
 	// 6. Stop App
 	if err := application.Stop(); err != nil {
-		logger.Error("Error during shutdown")
+		logger.Error("Error during shutdown", zap.Error(err))
 	}
 }

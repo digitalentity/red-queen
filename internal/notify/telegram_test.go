@@ -18,7 +18,7 @@ import (
 func TestTelegramNotifier_formatMessage(t *testing.T) {
 	n := &TelegramNotifier{
 		cfg: config.NotifyConfig{
-			URL: "https://redqueen.io/",
+			ArtifactBaseURL: "https://redqueen.io/",
 		},
 	}
 

@@ -21,7 +21,6 @@ type HTTPClientConfig struct {
 	Timeout string `mapstructure:"timeout"` // Default 30s
 }
 
-
 type FTPConfig struct {
 	ListenAddress string `mapstructure:"listen_address"`
 	Port          int    `mapstructure:"port"`
@@ -70,14 +69,14 @@ type S3Config struct {
 }
 
 type NotifyConfig struct {
-	Type    string `mapstructure:"type"`
-	Enabled bool   `mapstructure:"enabled"`
-	URL     string `mapstructure:"url"`     // Used by Webhook
-	Channel string `mapstructure:"channel"` // Used by Slack
-	Token   string `mapstructure:"token"`   // Used by Slack/Telegram
-	HomeyID string `mapstructure:"homey_id"` // Used by Homey
-	Event   string `mapstructure:"event"`    // Used by Homey
-	ChatID  int64  `mapstructure:"chat_id"`  // Used by Telegram
+	Type            string `mapstructure:"type"`
+	Enabled         bool   `mapstructure:"enabled"`
+	URL             string `mapstructure:"url"`              // Used by Webhook; Telegram API base URL override
+	ArtifactBaseURL string `mapstructure:"artifact_base_url"` // Used by Telegram: public base URL for artifact links
+	Token           string `mapstructure:"token"`             // Used by Telegram
+	HomeyID         string `mapstructure:"homey_id"`          // Used by Homey
+	Event           string `mapstructure:"event"`             // Used by Homey
+	ChatID          int64  `mapstructure:"chat_id"`           // Used by Telegram
 }
 
 type APIConfig struct {
