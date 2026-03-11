@@ -15,13 +15,19 @@ func TestConfig_Validate(t *testing.T) {
 			FTP:   FTPConfig{TempDir: "/tmp/uploads"},
 			Zones: []ZoneConfig{{Name: "front-door", Cameras: []CameraConfig{{IP: "192.168.1.10"}}}},
 			Detection: DetectionConfig{
-				Analysis: AnalyzerConfig{Provider: "gemini-ai"},
+				Analysis: &AnalyzerConfig{Provider: "gemini-ai"},
 			},
 		}
 	}
 
 	t.Run("Valid config passes", func(t *testing.T) {
 		assert.NoError(t, validBase().Validate())
+	})
+
+	t.Run("Missing analysis section", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Detection.Analysis = nil
+		assert.ErrorContains(t, cfg.Validate(), "analysis section")
 	})
 
 	t.Run("Missing analysis provider", func(t *testing.T) {

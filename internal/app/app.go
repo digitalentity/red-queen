@@ -51,7 +51,7 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 	zoneManager := zone.NewManager(cfg.Zones)
 
 	// 2. Initialize Detection Pipeline (Analysis + Optional Prefilter)
-	analysis, err := ml.NewAnalyzer(ctx, cfg.Detection.Analysis, logger)
+	analysis, err := ml.NewAnalyzer(ctx, *cfg.Detection.Analysis, logger)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to initialize analysis stage: %w", err)

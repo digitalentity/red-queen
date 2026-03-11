@@ -51,7 +51,7 @@ type CameraConfig struct {
 // Prefilter is optional; when nil the Analysis stage runs directly.
 type DetectionConfig struct {
 	Prefilter *AnalyzerConfig `mapstructure:"prefilter"`
-	Analysis  AnalyzerConfig  `mapstructure:"analysis"`
+	Analysis  *AnalyzerConfig `mapstructure:"analysis"`
 }
 
 // AnalyzerConfig holds all fields for any analyzer implementation.
@@ -127,6 +127,10 @@ func (c *Config) Validate() error {
 		if !validZoneName.MatchString(z.Name) {
 			return fmt.Errorf("invalid zone name %q: must contain only letters, digits, underscores, and hyphens", z.Name)
 		}
+	}
+
+	if c.Detection.Analysis == nil {
+		return fmt.Errorf("detection.analysis section is required")
 	}
 
 	if c.Detection.Analysis.Provider == "" {
