@@ -5,22 +5,17 @@ This document outlines planned and suggested improvements for the Red Queen Vide
 ## 1. Ingestion & Camera Integration
 - **Advanced Protocols**: Add support for RTSP and RTMP ingestion to support real-time streaming analysis rather than just file-based FTP uploads.
 - **ONVIF Support**: Implement ONVIF integration to allow the system to control PTZ (Pan-Tilt-Zoom) cameras, such as automatically centering on a detected threat.
-- **Motion Pre-filtering**: Implement a local, lightweight motion detection filter (e.g., using OpenCV) to avoid sending static frames to expensive Cloud ML models.
+- **Motion Pre-filtering**: Implement a local, lightweight motion detection filter (e.g., using OpenCV) to avoid sending static frames to expensive Cloud ML models. (The two-stage pipeline infrastructure — `ChainedAnalyzer` and prefilter config — is already in place; what remains is the actual YOLO-ONNX provider, tracked in §2 below.)
 
 ## 2. Machine Learning & Analysis
-- **ML Pre-classifier (Cost Optimization)**: Implement a lightweight, local pre-classifier to filter empty or irrelevant frames.
-    - **Recommended Models**:
-        - **YOLOv11-Nano / YOLO26-Nano**: High-speed object detection (Person, Car).
-        - **MobileNetV4**: Efficient classification for CPU-only environments.
-        - **OpenCV Background Subtraction**: Fast motion-gate to ignore static scenes.
-    - **Integration**: Use **ONNX Runtime** with Go bindings or a **TensorFlow Lite** sidecar container.
-    - **Sensitivity**: Tune for ~99% recall to ensure no potential suspects are missed while filtering out "noise" (shadows, wind, etc.).
+- **ML Pre-classifier / YOLO-ONNX Provider (Cost Optimization)**: The `ChainedAnalyzer` pipeline and prefilter config are implemented; the `yolo-onnx` provider factory stub exists but returns "not yet implemented". Complete the provider using ONNX Runtime Go bindings against a YOLOv11-Nano or MobileNetV4 model. Target ~99% recall to avoid missing suspects while filtering out static noise. A TensorFlow Lite sidecar is an alternative for CPU-only environments.
 - **Edge ML Provider**: Implement a local provider using TensorFlow Lite or ONNX to perform analysis on-premise, reducing latency and cloud costs.
 - **Face Recognition**: Integrate a face recognition module to distinguish between "Authorized Personnel" and "Intruders."
 - **Behavioral Analysis**: Move beyond object detection to analyze behavior (e.g., a person loitering or climbing a fence).
 
 ## 3. Storage & Data Management
-- **Cloud Storage Providers**: Implement the S3 and Google Cloud Storage (GCS) providers defined in the configuration.
+- **Cloud Storage Providers**: Add Google Cloud Storage (GCS) and S3-compatible providers. Google Drive is already supported; GCS/S3 are not yet implemented.
+- **Artifact redirect for remote providers**: The `/artifacts/...` REST endpoint currently returns 404 when no local storage provider is configured. For remote providers (e.g. Google Drive), the handler could issue a `302 Found` redirect to the provider's own URL (e.g. Drive's `webViewLink`), keeping the endpoint a stable, provider-agnostic entry point. Possible design: `storage.Provider` gains an optional `ArtifactURL(id string) (string, bool)` method; the handler checks for a redirect before falling back to local file serving.
 - **Metadata Database**: Integrate a database (SQLite or PostgreSQL) to store event metadata. Currently, the system relies on the filesystem, making it difficult to search or filter historical events.
 - **Retention Policies**: Implement an automated cleanup service to delete artifacts and metadata older than a configurable number of days.
 

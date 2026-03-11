@@ -283,7 +283,7 @@ The REST API endpoint `/artifacts/...` **requires a local storage provider** to 
 
 Deployments that use only Google Drive (or other remote providers) do not have artifacts accessible via the API. Notifications will include the Drive `webViewLink` instead, subject to the access restrictions described above.
 
-A potential improvement — issuing a `302` redirect to the provider's own URL for remote backends — is tracked in `docs/FUTURE_WORK.md`.
+A potential improvement — issuing a `302` redirect to the provider's own URL for remote backends — is tracked in `FUTURE_WORK.md`.
 
 ---
 
