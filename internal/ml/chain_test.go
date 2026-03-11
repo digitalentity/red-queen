@@ -13,12 +13,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestChainedAnalyzer_Analyze(t *testing.T) {
-	logger := zap.NewNop()
-	event := &models.Event{
+func newTestEvent() *models.Event {
+	return &models.Event{
 		Zone:      "test-zone",
 		Timestamp: time.Now(),
 	}
+}
+
+func TestChainedAnalyzer_Analyze(t *testing.T) {
+	logger := zap.NewNop()
 
 	t.Run("Prefilter no threat short-circuits", func(t *testing.T) {
 		pre := &MockAnalyzer{
@@ -35,7 +38,7 @@ func TestChainedAnalyzer_Analyze(t *testing.T) {
 		}
 
 		chain := NewChainedAnalyzer(pre, analysis, logger)
-		res, err := chain.Analyze(context.Background(), event)
+		res, err := chain.Analyze(context.Background(), newTestEvent())
 
 		require.NoError(t, err)
 		assert.False(t, res.IsThreat)
@@ -54,6 +57,7 @@ func TestChainedAnalyzer_Analyze(t *testing.T) {
 			},
 		}
 
+		event := newTestEvent()
 		chain := NewChainedAnalyzer(pre, analysis, logger)
 		res, err := chain.Analyze(context.Background(), event)
 
@@ -80,7 +84,7 @@ func TestChainedAnalyzer_Analyze(t *testing.T) {
 		}
 
 		chain := NewChainedAnalyzer(pre, analysis, logger)
-		res, err := chain.Analyze(context.Background(), event)
+		res, err := chain.Analyze(context.Background(), newTestEvent())
 
 		require.NoError(t, err)
 		assert.True(t, res.IsThreat, "Must fall back to prefilter result on hard failure")
@@ -100,7 +104,7 @@ func TestChainedAnalyzer_Analyze(t *testing.T) {
 		}
 
 		chain := NewChainedAnalyzer(pre, analysis, logger)
-		res, err := chain.Analyze(context.Background(), event)
+		res, err := chain.Analyze(context.Background(), newTestEvent())
 
 		require.Error(t, err)
 		assert.Nil(t, res)
