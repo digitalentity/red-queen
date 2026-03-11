@@ -53,94 +53,59 @@ Follow the **Research -> Strategy -> Execution** lifecycle for all changes.
 - `make run`: Builds and starts the system.
 - `make clean`: Removes the compiled binary.
 
+## Architecture
+
+The system is a pipeline: **FTP upload → Zone lookup → Coordinator → ML analysis → Storage + Notifications**.
+
+### Event lifecycle (`internal/coordinator/coordinator.go`)
+
+`Coordinator.Process` is the central method. It runs synchronously (bounded by a semaphore for concurrency) and orchestrates:
+1. ML analysis with exponential-backoff retry via `cenkalti/backoff`
+2. Artifact storage (only on confirmed threat)
+3. Fan-out notification to all configured notifiers
+4. Ephemeral file cleanup via a deferred `os.Remove`
+
+Errors from the ML layer are typed (`ErrorHard` skips retries, `ErrorSoft` retries). Always use `errors.As` when unwrapping `*ml.AnalysisError`.
+
+### FTP ingestion (`internal/ftp/server.go`)
+
+Uses `fclairamb/ftpserverlib`. The key design is a **virtual filesystem** (`ObservedFs`) that wraps `afero.Fs`:
+- Files uploaded by cameras are stored flat in `TempDir` with UUID-prefixed names to avoid collisions across cameras.
+- A `VirtualRegistry` per camera IP maps the virtual path the camera sees (e.g. `/subdir/clip.mp4`) to the physical UUID filename.
+- `ObservedFile.Close()` fires `coordinator.Process` in a goroutine using `sync.Once`.
+- On `Stop()`, `ftpserverlib` returns `nil` (not `http.ErrServerClosed`); do not use the HTTP sentinel here.
+
+### Interfaces and extension points
+
+All major subsystems are behind interfaces defined in their own packages:
+
+| Interface | Package | Implementations |
+|-----------|---------|-----------------|
+| `ml.Analyzer` | `internal/ml` | `GeminiAnalyzer`, `PassThroughAnalyzer`, `MockAnalyzer` |
+| `storage.Provider` | `internal/storage` | `LocalStorage`, `MockProvider` |
+| `notify.Notifier` | `internal/notify` | `WebhookNotifier`, `TelegramNotifier`, `HomeyNotifier`, `MockNotifier` |
+| `zone.Manager` | `internal/zone` | `managerImpl` (unexported), `MockManager` (test-only) |
+| `coordinator.Processor` | `internal/coordinator` | `*Coordinator` |
+
+### Configuration (`internal/config/config.go`)
+
+Loaded by viper. Duration fields (`ProcessTimeout`, `HTTPClient.Timeout`) are `time.Duration` — viper decodes YAML strings like `"5m"` automatically. `NotifyConfig` is a flat struct shared by all notifier types.
+
+### Metrics
+
+Prometheus metrics are registered via `promauto` in `internal/metrics/metrics.go` and exposed at `/metrics` by the API server. Labels follow the pattern `zone` / `provider` / `status`.
+
+### Testing conventions
+
+- Mocks (`MockAnalyzer`, `MockProvider`, `MockNotifier`) live in non-test files because they are used as production no-op fallbacks in `app.go`. `MockManager` (zone) lives in `zone/mock_test.go` because it is test-only.
+- Integration test (`tests/integration_test.go`, build tag `//go:build integration`) compiles and runs the real binary, uploads via `curl`, and asserts on webhook/Telegram payloads and file presence. It requires a pre-built binary (`make integration-test` handles this).
+
 ## Adding a New Notifier
 1. Define any new configuration fields in `internal/config/config.go`.
 2. Implement the `Notifier` interface in `internal/notify/`.
-3. Register the new notifier in the initialization loop within `cmd/red-queen/main.go`.
+3. Register the new notifier in the initialization loop within `internal/app/app.go` (specifically in `RegisterNotifiers`).
 4. Add unit tests in `internal/notify/your_notifier_test.go`.
 5. Document the new notifier in `docs/`.
 
-## Go development checklist:
-- Idiomatic code following effective Go guidelines
-- gofmt compliance
-- Context propagation in all APIs
-- Comprehensive error handling with wrapping
-- Table-driven tests with subtests
-- Benchmark critical code paths
-- Race condition free code
-- Documentation for all exported items
-
-## Idiomatic Go patterns:
-- Interface composition over inheritance
-- Accept interfaces, return structs
-- Channels for orchestration, mutexes for state
-- Error values over exceptions
-- Explicit over implicit behavior
-- Small, focused interfaces
-- Dependency injection via interfaces
-- Configuration through functional options
-
-## Concurrency mastery:
-- Goroutine lifecycle management
-- Channel patterns and pipelines
-- Context for cancellation and deadlines
-- Select statements for multiplexing
-- Worker pools with bounded concurrency
-- Fan-in/fan-out patterns
-- Rate limiting and backpressure
-- Synchronization with sync primitives
-
-## Error handling excellence:
-- Wrapped errors with context
-- Custom error types with behavior
-- Sentinel errors for known conditions
-- Error handling at appropriate levels
-- Structured error messages
-- Error recovery strategies
-- Panic only for programming errors
-- Graceful degradation patterns
-
-## Performance optimization:
-- CPU and memory profiling with pprof
-- Benchmark-driven development
-- Zero-allocation techniques
-- Object pooling with sync.Pool
-- Efficient string building
-- Slice pre-allocation
-- Compiler optimization understanding
-- Cache-friendly data structures
-
-## Testing methodology:
-- Table-driven test patterns
-- Subtest organization
-- Test fixtures and golden files
-- Interface mocking strategies
-- Integration test setup
-- Benchmark comparisons
-- Fuzzing for edge cases
-
-## Microservices patterns:
-- REST API with middleware
-- Health checks and readiness
-- Graceful shutdown handling
-- Configuration management
-
-## Memory management:
-- Understanding escape analysis
-- Stack vs heap allocation
-- Garbage collection tuning
-- Memory leak prevention
-- Efficient buffer usage
-- String interning techniques
-- Slice capacity management
-- Map pre-sizing strategies
-
-## Build and tooling:
-- Module management best practices
-- Build tags and constraints
-- Cross-compilation setup
-- CGO usage guidelines
-- Go generate workflows
-- Makefile conventions
-- Docker multi-stage builds
-- CI/CD optimization
+## Development Standards & Style Guide
+For a comprehensive guide on Go development standards, idiomatic patterns, concurrency, error handling, and more, refer to [docs/GENAI.md](docs/GENAI.md). All code contributions should adhere to these guidelines.
