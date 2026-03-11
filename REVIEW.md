@@ -9,7 +9,7 @@ This document summarizes the results of a comprehensive code review of the Red Q
 *   **Issue:** The `MockProvider` and `MockNotifier` append to slices (`SavedEvents`, `SentAlerts`) without synchronization (e.g., `sync.Mutex`).
 *   **Impact:** While current tests pass, any concurrent tests or integration tests using the FTP server (which triggers `Process` in a goroutine) will trigger data races, leading to flaky tests or panics.
 
-### Double Processing Risk (Medium)
+### Double Processing Risk (FIXED)
 *   **File:** `internal/ftp/server.go`
 *   **Issue:** `ObservedFile.Close` triggers processing via `go f.coordinator.Process(...)`.
 *   **Impact:** If the FTP server implementation or a client retry triggers multiple `Close()` calls on the same file handle, the same file will be analyzed and stored multiple times, wasting resources and generating duplicate notifications.

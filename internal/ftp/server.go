@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"redqueen/internal/config"
@@ -231,18 +232,21 @@ type ObservedFile struct {
 	ip          string
 	zone        string
 	isWrite     bool
+	once        sync.Once
 }
 
 func (f *ObservedFile) Close() error {
 	err := f.File.Close()
 	if err == nil && f.isWrite {
-		f.logger.Debug("File closed, triggering analysis",
-			zap.String("path", f.fullPath),
-			zap.String("ip", f.ip),
-			zap.String("zone", f.zone),
-		)
-		// Trigger analysis
-		go f.coordinator.Process(f.ctx, f.fullPath, f.ip, f.zone)
+		f.once.Do(func() {
+			f.logger.Debug("File closed, triggering analysis",
+				zap.String("path", f.fullPath),
+				zap.String("ip", f.ip),
+				zap.String("zone", f.zone),
+			)
+			// Trigger analysis
+			go f.coordinator.Process(f.ctx, f.fullPath, f.ip, f.zone)
+		})
 	}
 	return err
 }
