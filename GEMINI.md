@@ -47,7 +47,7 @@ Follow the **Research -> Strategy -> Execution** lifecycle for all changes.
   ```
 
 ### 4. Commit Guidelines
-- Always include a `Co-Authored-By: Gemini CLI <gemini-cli@google.com>` sign-off at the end of the commit message.
+- Always include a `Co-Authored-By: Gemini CLI <gemini-code-assist@google.com>` sign-off at the end of the commit message.
 - Use the imperative mood in the subject line (e.g., "Add feature" instead of "Added feature").
 - Provide a clear and concise description of the changes in the commit body.
 
