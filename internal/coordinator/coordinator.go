@@ -17,6 +17,11 @@ import (
 	"redqueen/internal/storage"
 )
 
+// Processor is the interface for handling an uploaded file event.
+type Processor interface {
+	Process(ctx context.Context, filePath, ip, zone string)
+}
+
 // CoordinatorConfig holds the configuration for the Coordinator.
 type CoordinatorConfig struct {
 	RetainFiles    bool

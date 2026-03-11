@@ -36,12 +36,8 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 
 	// 0. Initialize Shared HTTP Client
 	httpTimeout := 30 * time.Second
-	if cfg.HTTPClient.Timeout != "" {
-		if d, err := time.ParseDuration(cfg.HTTPClient.Timeout); err == nil {
-			httpTimeout = d
-		} else {
-			logger.Warn("Failed to parse http_client.timeout, using default 30s", zap.Error(err))
-		}
+	if cfg.HTTPClient.Timeout > 0 {
+		httpTimeout = cfg.HTTPClient.Timeout
 	}
 	httpClient := &http.Client{
 		Timeout: httpTimeout,
@@ -121,12 +117,8 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 
 	// 5. Initialize Coordinator
 	processTimeout := 5 * time.Minute
-	if cfg.ProcessTimeout != "" {
-		if d, err := time.ParseDuration(cfg.ProcessTimeout); err == nil {
-			processTimeout = d
-		} else {
-			logger.Warn("Failed to parse process_timeout, using default 5m", zap.Error(err))
-		}
+	if cfg.ProcessTimeout > 0 {
+		processTimeout = cfg.ProcessTimeout
 	}
 
 	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, coordinator.CoordinatorConfig{

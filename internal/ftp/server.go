@@ -25,7 +25,7 @@ type Server struct {
 	ctx         context.Context
 	logger      *zap.Logger
 	config      config.FTPConfig
-	coordinator *coordinator.Coordinator
+	coordinator coordinator.Processor
 	zoneManager zone.Manager
 	server      *ftpserver.FtpServer
 }
@@ -34,7 +34,7 @@ func NewServer(
 	ctx context.Context,
 	logger *zap.Logger,
 	cfg config.FTPConfig,
-	coord *coordinator.Coordinator,
+	coord coordinator.Processor,
 	zm zone.Manager,
 ) *Server {
 	return &Server{
@@ -84,7 +84,7 @@ type MainDriver struct {
 	ctx          context.Context
 	logger       *zap.Logger
 	config       config.FTPConfig
-	coordinator  *coordinator.Coordinator
+	coordinator  coordinator.Processor
 	zoneManager  zone.Manager
 	registries   map[string]*VirtualRegistry
 	registriesMu sync.Mutex
@@ -171,7 +171,7 @@ type ObservedFs struct {
 	afero.Fs
 	ctx         context.Context
 	logger      *zap.Logger
-	coordinator *coordinator.Coordinator
+	coordinator coordinator.Processor
 	ip          string
 	zone        string
 	tempDir     string
@@ -337,7 +337,7 @@ type ObservedFile struct {
 	afero.File
 	ctx         context.Context
 	fullPath    string
-	coordinator *coordinator.Coordinator
+	coordinator coordinator.Processor
 	logger      *zap.Logger
 	ip          string
 	zone        string

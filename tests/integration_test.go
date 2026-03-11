@@ -124,8 +124,16 @@ func TestFullSystemIntegration(t *testing.T) {
 		}
 	}()
 
-	// Wait for services to start
-	time.Sleep(2 * time.Second)
+	// Wait for the API server to be ready (indicates all services have started)
+	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", apiPort)
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(healthURL) //nolint:noctx
+		if err != nil {
+			return false
+		}
+		resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 15*time.Second, 100*time.Millisecond, "API server did not become ready in time")
 
 	// 4. Create and upload a file via FTP using curl
 	testFileName := "camera_clip.mp4"

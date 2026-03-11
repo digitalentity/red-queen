@@ -88,7 +88,7 @@ func TestObservedFs_VirtualMapping(t *testing.T) {
 func TestMainDriver_RegistryIsolation(t *testing.T) {
 	logger := zap.NewNop()
 	zm := zone.NewManager(nil)
-	coord := &coordinator.Coordinator{} // Empty mock - fine as long as Process isn't called
+	coord := coordinator.NewCoordinator(logger, nil, nil, nil, coordinator.CoordinatorConfig{})
 
 	driver := &MainDriver{
 		logger:      logger,

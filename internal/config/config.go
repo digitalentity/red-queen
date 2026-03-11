@@ -1,13 +1,15 @@
 package config
 
 import (
+	"time"
+
 	"github.com/spf13/viper"
 )
 
 type Config struct {
 	LogLevel       string           `mapstructure:"log_level"`
 	Concurrency    int              `mapstructure:"concurrency"`
-	ProcessTimeout string           `mapstructure:"process_timeout"` // e.g. "5m"
+	ProcessTimeout time.Duration    `mapstructure:"process_timeout"`
 	HTTPClient     HTTPClientConfig `mapstructure:"http_client"`
 	FTP            FTPConfig        `mapstructure:"ftp"`
 	Zones          []ZoneConfig     `mapstructure:"zones"`
@@ -18,7 +20,7 @@ type Config struct {
 }
 
 type HTTPClientConfig struct {
-	Timeout string `mapstructure:"timeout"` // Default 30s
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type FTPConfig struct {
