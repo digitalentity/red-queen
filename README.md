@@ -18,6 +18,19 @@ Red Queen is a modular, event-driven video surveillance threat analysis system w
 - **REST API**: Serves stored artifacts, system health, and Prometheus metrics.
 - **Resilient Pipeline**: Automatic retries with exponential backoff for transient failures (Soft Failures).
 
+## 📷 Supported Cameras
+
+Red Queen requires cameras that support **native FTP/SFTP upload** of images or video clips. While any camera following standard FTP protocols should work, the following brands are known for robust native support (as of 2024–2025):
+
+| Brand | FTP Support | SFTP Support | Recommended Models |
+| :--- | :--- | :--- | :--- |
+| **Reolink** | Excellent | Limited | RLC-811A, CX410, Duo 3 PoE, Altas PT Ultra |
+| **Amcrest** | Excellent | Yes | IP8M-2496EB-V2, IP4M-1041B, IP4M-1093EW-AI |
+| **Dahua** | Excellent | Yes | WizMind & WizSense Series, IPC-HDW2849TM |
+| **Hikvision** | Excellent | Yes | ColorVu G3 Series, AcuSense Series |
+
+**Note on Battery Cameras:** Most battery-powered cameras (Ring, Nest, Arlo) **do not** support FTP. Reolink's newer hardware versions (2024+) are a rare exception. Always verify FTP/SFTP support in your camera's "Network" or "Storage" settings before integration.
+
 ## 🏗️ Architecture
 
 Red Queen uses an internal orchestrator (the Coordinator) to manage the lifecycle of an upload from ingestion to notification.
