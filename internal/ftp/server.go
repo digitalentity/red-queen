@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,7 @@ func (s *Server) Start() error {
 		config:      s.config,
 		coordinator: s.coordinator,
 		zoneManager: s.zoneManager,
+		registries:  make(map[string]*VirtualRegistry),
 	}
 
 	s.server = ftpserver.NewFtpServer(driver)
@@ -67,13 +69,25 @@ func (s *Server) Stop() error {
 	return nil
 }
 
+// VirtualRegistry maps virtual paths to physical filenames.
+type VirtualRegistry struct {
+	mu       sync.RWMutex
+	mappings map[string]string // virtual path -> physical unique filename
+}
+
+func NewVirtualRegistry() *VirtualRegistry {
+	return &VirtualRegistry{mappings: make(map[string]string)}
+}
+
 // MainDriver implements ftpserver.MainDriver
 type MainDriver struct {
-	ctx         context.Context
-	logger      *zap.Logger
-	config      config.FTPConfig
-	coordinator *coordinator.Coordinator
-	zoneManager zone.Manager
+	ctx          context.Context
+	logger       *zap.Logger
+	config       config.FTPConfig
+	coordinator  *coordinator.Coordinator
+	zoneManager  zone.Manager
+	registries   map[string]*VirtualRegistry
+	registriesMu sync.Mutex
 }
 
 func (d *MainDriver) GetSettings() (*ftpserver.Settings, error) {
@@ -114,6 +128,15 @@ func (d *MainDriver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ft
 		return nil, err
 	}
 
+	// Get or create registry for this IP
+	d.registriesMu.Lock()
+	registry, exists := d.registries[ipStr]
+	if !exists {
+		registry = NewVirtualRegistry()
+		d.registries[ipStr] = registry
+	}
+	d.registriesMu.Unlock()
+
 	// We use the temp directory as the root for this camera
 	baseFs := afero.NewBasePathFs(afero.NewOsFs(), d.config.TempDir)
 
@@ -131,6 +154,7 @@ func (d *MainDriver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ft
 		ip:          ipStr,
 		zone:        zoneName,
 		tempDir:     d.config.TempDir,
+		registry:    registry,
 	}, nil
 }
 
@@ -139,7 +163,6 @@ func (d *MainDriver) GetTLSConfig() (*tls.Config, error) {
 }
 
 // ObservedFs wraps afero.Fs to catch when a file is closed after writing
-// It implements ftpserver.ClientDriver because it embeds afero.Fs
 type ObservedFs struct {
 	afero.Fs
 	ctx         context.Context
@@ -148,6 +171,11 @@ type ObservedFs struct {
 	ip          string
 	zone        string
 	tempDir     string
+	registry    *VirtualRegistry
+}
+
+func (fs *ObservedFs) cleanPath(name string) string {
+	return filepath.Clean("/" + name)
 }
 
 func (fs *ObservedFs) Create(name string) (afero.File, error) {
@@ -155,58 +183,136 @@ func (fs *ObservedFs) Create(name string) (afero.File, error) {
 }
 
 func (fs *ObservedFs) Remove(name string) error {
-	fs.logger.Debug("Removing file", zap.String("name", name), zap.String("ip", fs.ip))
-	return fs.Fs.Remove(name)
+	name = fs.cleanPath(name)
+	fs.registry.mu.Lock()
+	physical, ok := fs.registry.mappings[name]
+	if ok {
+		delete(fs.registry.mappings, name)
+	}
+	fs.registry.mu.Unlock()
+
+	if !ok {
+		return os.ErrNotExist
+	}
+
+	fs.logger.Debug("Removing file", zap.String("name", name), zap.String("physical", physical), zap.String("ip", fs.ip))
+	return fs.Fs.Remove(physical)
 }
 
 func (fs *ObservedFs) Rename(oldname, newname string) error {
-	fs.logger.Debug("Renaming file",
+	oldname = fs.cleanPath(oldname)
+	newname = fs.cleanPath(newname)
+
+	fs.registry.mu.Lock()
+	defer fs.registry.mu.Unlock()
+
+	physical, ok := fs.registry.mappings[oldname]
+	if !ok {
+		return os.ErrNotExist
+	}
+
+	// Update mapping
+	delete(fs.registry.mappings, oldname)
+	fs.registry.mappings[newname] = physical
+
+	fs.logger.Debug("Renaming virtual file",
 		zap.String("old", oldname),
 		zap.String("new", newname),
+		zap.String("physical", physical),
 		zap.String("ip", fs.ip),
 	)
-	return fs.Fs.Rename(oldname, newname)
-}
-
-func (fs *ObservedFs) Mkdir(name string, perm os.FileMode) error {
-	fs.logger.Debug("Ignoring directory creation (flattening enabled)", zap.String("name", name), zap.String("ip", fs.ip))
 	return nil
 }
 
+func (fs *ObservedFs) Mkdir(name string, perm os.FileMode) error {
+	fs.logger.Debug("Virtual directory creation", zap.String("name", name))
+	return nil // Directories are purely virtual
+}
+
 func (fs *ObservedFs) MkdirAll(path string, perm os.FileMode) error {
-	fs.logger.Debug("Ignoring directory creation (flattening enabled)", zap.String("path", path), zap.String("ip", fs.ip))
+	fs.logger.Debug("Virtual directory creation", zap.String("path", path))
 	return nil
 }
 
 func (fs *ObservedFs) Stat(name string) (os.FileInfo, error) {
-	fi, err := fs.Fs.Stat(name)
-	if err != nil {
-		// If the file/dir doesn't exist on disk, we pretend it's a directory.
-		// This satisfies clients that try to CWD or check directories before uploading,
-		// while we actually flatten everything into the root temp directory.
-		return &fakeFileInfo{name: filepath.Base(name)}, nil
+	name = fs.cleanPath(name)
+	if name == "/" || name == "." {
+		return &fakeFileInfo{name: "/", isDir: true}, nil
 	}
-	return fi, nil
+
+	fs.registry.mu.RLock()
+	physical, ok := fs.registry.mappings[name]
+	isDir := false
+	if !ok {
+		// Check if it's a virtual directory prefix
+		prefix := name + "/"
+		for v := range fs.registry.mappings {
+			if strings.HasPrefix(v, prefix) {
+				isDir = true
+				break
+			}
+		}
+	}
+	fs.registry.mu.RUnlock()
+
+	if ok {
+		fi, err := fs.Fs.Stat(physical)
+		if err != nil && os.IsNotExist(err) {
+			// Lazy pruning of stale mappings
+			fs.registry.mu.Lock()
+			delete(fs.registry.mappings, name)
+			fs.registry.mu.Unlock()
+			return nil, err
+		}
+		if err == nil {
+			// Return file info but with the virtual name
+			return &fakeFileInfo{
+				name:    filepath.Base(name),
+				size:    fi.Size(),
+				modTime: fi.ModTime(),
+				isDir:   false,
+			}, nil
+		}
+		return nil, err
+	}
+
+	if isDir {
+		return &fakeFileInfo{name: filepath.Base(name), isDir: true}, nil
+	}
+
+	return nil, os.ErrNotExist
 }
 
 func (fs *ObservedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
-	// We want to ensure unique names in the shared temp directory
-	uniqueName := fmt.Sprintf("%s-%s-%s", fs.ip, uuid.New().String(), filepath.Base(name))
+	name = fs.cleanPath(name)
 
-	// Open/Create the file in the base filesystem
-	f, err := fs.Fs.OpenFile(uniqueName, flag, perm)
+	fs.registry.mu.Lock()
+	physical, ok := fs.registry.mappings[name]
+	if !ok {
+		// Only create a new mapping if we are writing
+		isCreate := flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE) != 0
+		if isCreate {
+			physical = fmt.Sprintf("%s-%s-%s", fs.ip, uuid.New().String(), filepath.Base(name))
+			fs.registry.mappings[name] = physical
+		} else {
+			fs.registry.mu.Unlock()
+			return nil, os.ErrNotExist
+		}
+	}
+	fs.registry.mu.Unlock()
+
+	// Open/Create the physical file
+	f, err := fs.Fs.OpenFile(physical, flag, perm)
 	if err != nil {
 		return nil, err
 	}
 
-	fullPath := filepath.Join(fs.tempDir, uniqueName)
-
-	// We only want to trigger processing for files that were opened for writing
+	fullPath := filepath.Join(fs.tempDir, physical)
 	isWrite := flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE) != 0
 
 	fs.logger.Debug("Opening file",
-		zap.String("name", name),
-		zap.String("unique_name", uniqueName),
+		zap.String("virtual_name", name),
+		zap.String("physical_name", physical),
 		zap.Bool("write", isWrite),
 		zap.String("ip", fs.ip),
 	)
@@ -252,12 +358,20 @@ func (f *ObservedFile) Close() error {
 }
 
 type fakeFileInfo struct {
-	name string
+	name    string
+	size    int64
+	modTime time.Time
+	isDir   bool
 }
 
 func (f *fakeFileInfo) Name() string       { return f.name }
-func (f *fakeFileInfo) Size() int64        { return 0 }
-func (f *fakeFileInfo) Mode() os.FileMode  { return os.ModeDir | 0755 }
-func (f *fakeFileInfo) ModTime() time.Time { return time.Now() }
-func (f *fakeFileInfo) IsDir() bool        { return true }
+func (f *fakeFileInfo) Size() int64        { return f.size }
+func (f *fakeFileInfo) Mode() os.FileMode  { 
+	if f.isDir {
+		return os.ModeDir | 0755
+	}
+	return 0644
+}
+func (f *fakeFileInfo) ModTime() time.Time { return f.modTime }
+func (f *fakeFileInfo) IsDir() bool        { return f.isDir }
 func (f *fakeFileInfo) Sys() interface{}   { return nil }

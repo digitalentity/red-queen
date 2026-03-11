@@ -119,10 +119,14 @@ You MUST return a valid JSON object with the following structure:
 		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("vertex ai generation failed: %w", err))
 	}
 
-	// Extract text from response
+	if res == nil || len(res.Candidates) == 0 {
+		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("no response candidates from vertex ai"))
+	}
+
+	// Extract text from response safely
 	text := res.Text()
 	if text == "" {
-		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("empty response from vertex ai"))
+		return nil, NewAnalysisError(ErrorSoft, fmt.Errorf("empty response text from vertex ai"))
 	}
 
 	// Extract JSON from response

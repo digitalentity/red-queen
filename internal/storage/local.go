@@ -35,7 +35,7 @@ func (s *LocalStorage) Save(ctx context.Context, event *models.Event) (string, e
 	destPath := filepath.Join(destDir, fmt.Sprintf("%s_%s", event.ID, fileName))
 
 	// 2. Copy the file (Always copy, never move, to keep storage provider generic)
-	if err := s.copyFile(event.FilePath, destPath); err != nil {
+	if err := s.copyFile(ctx, event.FilePath, destPath); err != nil {
 		return "", fmt.Errorf("failed to copy file to local storage: %w", err)
 	}
 
@@ -44,7 +44,7 @@ func (s *LocalStorage) Save(ctx context.Context, event *models.Event) (string, e
 	return fmt.Sprintf("/artifacts/%s/%s/%s_%s", dateDir, event.Zone, event.ID, fileName), nil
 }
 
-func (s *LocalStorage) copyFile(src, dst string) error {
+func (s *LocalStorage) copyFile(ctx context.Context, src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -57,9 +57,28 @@ func (s *LocalStorage) copyFile(src, dst string) error {
 	}
 	defer destFile.Close()
 
-	if _, err := io.Copy(destFile, sourceFile); err != nil {
-		return err
+	// Use a context-aware copy by periodically checking ctx.Done()
+	// or using a pipe/goroutine for larger files. For simplicity and robustness
+	// in this environment, we'll use a buffered copy loop.
+	
+	buffer := make([]byte, 32*1024) // 32KB buffer
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			n, err := sourceFile.Read(buffer)
+			if n > 0 {
+				if _, werr := destFile.Write(buffer[:n]); werr != nil {
+					return werr
+				}
+			}
+			if err != nil {
+				if err == io.EOF {
+					return destFile.Sync()
+				}
+				return err
+			}
+		}
 	}
-
-	return destFile.Sync()
 }
