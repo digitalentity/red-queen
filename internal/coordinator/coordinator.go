@@ -16,14 +16,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// CoordinatorConfig holds the configuration for the Coordinator.
+type CoordinatorConfig struct {
+	RetainFiles bool
+	Concurrency int
+}
+
 // Coordinator orchestrates the lifecycle of a surveillance event.
 type Coordinator struct {
-	logger      *zap.Logger
-	analyzer    ml.Analyzer
-	storage     storage.Provider
-	notifiers   []notify.Notifier
-	retainFiles bool
-	sem         chan struct{}
+	logger    *zap.Logger
+	analyzer  ml.Analyzer
+	storage   storage.Provider
+	notifiers []notify.Notifier
+	config    CoordinatorConfig
+	sem       chan struct{}
 }
 
 // NewCoordinator creates a new instance of the Coordinator.
@@ -32,19 +38,18 @@ func NewCoordinator(
 	analyzer ml.Analyzer,
 	storage storage.Provider,
 	notifiers []notify.Notifier,
-	retainFiles bool,
-	concurrency int,
+	cfg CoordinatorConfig,
 ) *Coordinator {
-	if concurrency <= 0 {
-		concurrency = 1
+	if cfg.Concurrency <= 0 {
+		cfg.Concurrency = 1
 	}
 	return &Coordinator{
-		logger:      logger,
-		analyzer:    analyzer,
-		storage:     storage,
-		notifiers:   notifiers,
-		retainFiles: retainFiles,
-		sem:         make(chan struct{}, concurrency),
+		logger:    logger,
+		analyzer:  analyzer,
+		storage:   storage,
+		notifiers: notifiers,
+		config:    cfg,
+		sem:       make(chan struct{}, cfg.Concurrency),
 	}
 }
 
@@ -79,7 +84,7 @@ func (c *Coordinator) Process(ctx context.Context, filePath, ip, zone string) {
 
 	// Ensure cleanup at the end
 	defer func() {
-		if c.retainFiles {
+		if c.config.RetainFiles {
 			log.Debug("Retention enabled, keeping ephemeral file", zap.String("path", event.FilePath))
 			return
 		}

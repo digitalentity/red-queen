@@ -105,7 +105,10 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	// 4. Initialize Coordinator
-	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, cfg.FTP.RetainFiles, cfg.Concurrency)
+	orchestrator := coordinator.NewCoordinator(logger, analyzer, storageProvider, notifiers, coordinator.CoordinatorConfig{
+		RetainFiles: cfg.FTP.RetainFiles,
+		Concurrency: cfg.Concurrency,
+	})
 
 	// 5. Initialize & Start FTP Server
 	ftpServer := ftp.NewServer(ctx, logger, cfg.FTP, orchestrator, zoneManager)
