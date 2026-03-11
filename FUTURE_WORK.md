@@ -30,9 +30,8 @@ This document outlines planned and suggested improvements for the Red Queen Vide
 - **Zone State API**: Complete the REST endpoints to allow external systems to query the current "Security State" of a specific zone.
 
 ## 5. Observability & Reliability
-- **Prometheus Metrics**: Export system metrics (e.g., number of uploads, ML latency, storage usage, notification success rates).
 - **OpenTelemetry Tracing**: Implement tracing to follow the lifecycle of an event from the moment a file is uploaded until the notification is sent.
-- **Health Checks**: Enhance the `/health` endpoint to report the status of downstream dependencies (Vertex AI, Storage, etc.).
+- **Enhanced Health Checks**: Extend the existing `/health` endpoint to report the status of downstream dependencies (Vertex AI, Storage, etc.). Currently, it only provides a basic "OK" response.
 
 ## 6. Notification Channels
 - **Mobile Push**: Native mobile app integration for real-time push notifications.
