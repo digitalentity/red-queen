@@ -59,7 +59,7 @@ func (a *VertexAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Res
 	}
 
 	if fileInfo.Size() > maxSize {
-		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("file size %d exceeds limit of %d bytes", fileInfo.Size(), maxSize))
+		return nil, NewAnalysisError(ErrorHard, fmt.Errorf("file size %d exceeds maximum allowed size %d", fileInfo.Size(), maxSize))
 	}
 
 	// 2. Detect MIME Type
