@@ -77,6 +77,55 @@ func TestConfig_Validate(t *testing.T) {
 		cfg.Zones = []ZoneConfig{{Name: "Zone_1-A"}}
 		assert.NoError(t, cfg.Validate())
 	})
+
+	t.Run("Local storage missing root_path", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{
+			{Type: "local", Local: LocalConfig{RootPath: ""}},
+		}
+		assert.ErrorContains(t, cfg.Validate(), "root_path")
+	})
+
+	t.Run("Google Drive missing credentials_file", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{
+			{Type: "google_drive", GoogleDrive: GDriveConfig{FolderID: "folder-1"}},
+		}
+		assert.ErrorContains(t, cfg.Validate(), "credentials_file")
+	})
+
+	t.Run("Google Drive missing folder_id", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{
+			{Type: "google_drive", GoogleDrive: GDriveConfig{CredentialsFile: "/etc/sa.json"}},
+		}
+		assert.ErrorContains(t, cfg.Validate(), "folder_id")
+	})
+
+	t.Run("Storage provider with empty type", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{{Type: ""}}
+		assert.ErrorContains(t, cfg.Validate(), "type must not be empty")
+	})
+
+	t.Run("Valid local storage provider", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{
+			{Type: "local", Local: LocalConfig{RootPath: "/var/artifacts"}},
+		}
+		assert.NoError(t, cfg.Validate())
+	})
+
+	t.Run("Valid google_drive storage provider", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Storage.Providers = []StorageProviderConfig{
+			{Type: "google_drive", GoogleDrive: GDriveConfig{
+				CredentialsFile: "/etc/sa.json",
+				FolderID:        "folder-1",
+			}},
+		}
+		assert.NoError(t, cfg.Validate())
+	})
 }
 
 func TestLoadConfig(t *testing.T) {

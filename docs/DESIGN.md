@@ -30,7 +30,7 @@ graph TD
 
     subgraph "Pluggable Backends"
         MLInterface -.->|Cloud/Local| MLModel[ML Model Provider]
-        StorageInterface -.->|S3/LocalFS| StorageProvider[Storage Provider]
+        StorageInterface -.->|Local/GoogleDrive| StorageProvider[Storage Provider]
         NotificationInterface -.->|Webhook/Telegram/Homey| NotificationProvider[Notification Provider]
     end
 ```
@@ -74,8 +74,10 @@ To ensure consistency across all modules, the system uses a structured **Event**
 ### 5. Artifact Storage Interface (Pluggable)
 - **Interface**: `Save(ctx, Event) (URL, error)`
 - **Responsibility**: Persists the artifact and returns a referenceable URL.
+- **Multi-provider**: Multiple backends can be configured simultaneously. A `MultiProvider` wrapper fans out `Save` calls concurrently — failure of one backend does not prevent others from saving. The URL from the first successful provider is returned.
 - **Implementations**:
-    - **Local Storage**: Moves flagged artifacts to a permanent root directory structured by date and zone (`root_path/YYYY-MM-DD/zone/eventID_filename`).
+    - **Local Storage**: Copies flagged artifacts to a permanent root directory structured by date and zone (`root_path/YYYY-MM-DD/zone/eventID_filename`). Required for artifact serving via the REST API.
+    - **Google Drive**: Uploads artifacts to a configured Drive folder using a service account. Files are private (inherit folder sharing settings). Returns a `webViewLink`. See [Multi-Provider Storage Design](MULTI_STORAGE.md) for setup details.
 
 ### 6. Notification Interface (Pluggable)
 - **Interface**: `Send(ctx, Event, Result, URL) error`

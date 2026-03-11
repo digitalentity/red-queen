@@ -74,22 +74,43 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 	}
 
 	// 3. Initialize Storage
+	var providers []storage.Provider
+	artifactHandler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Artifact serving not available", http.StatusNotFound)
+	}))
+
+	for _, pcfg := range cfg.Storage.Providers {
+		switch pcfg.Type {
+		case "local":
+			p := storage.NewLocalStorage(pcfg.Local)
+			providers = append(providers, p)
+			// First local provider wins for HTTP artifact serving.
+			if _, isDefault := artifactHandler.(http.HandlerFunc); isDefault {
+				artifactHandler = http.FileServer(http.Dir(pcfg.Local.RootPath))
+			}
+			logger.Info("Storage: local enabled", zap.String("root_path", pcfg.Local.RootPath))
+		case "google_drive":
+			p, err := storage.NewGDriveStorage(ctx, pcfg.GoogleDrive)
+			if err != nil {
+				cancel()
+				return nil, fmt.Errorf("failed to init google_drive storage: %w", err)
+			}
+			providers = append(providers, p)
+			logger.Info("Storage: google_drive enabled", zap.String("folder_id", pcfg.GoogleDrive.FolderID))
+		default:
+			logger.Warn("Unknown storage provider type, skipping", zap.String("type", pcfg.Type))
+		}
+	}
+
 	var storageProvider storage.Provider
-	var artifactHandler http.Handler
-	switch cfg.Storage.Provider {
-	case "local":
-		storageProvider = storage.NewLocalStorage(cfg.Storage.Local)
-		artifactHandler = http.FileServer(http.Dir(cfg.Storage.Local.RootPath))
-		logger.Info("Using local storage", zap.String("root_path", cfg.Storage.Local.RootPath))
-	case "s3":
-		cancel()
-		return nil, fmt.Errorf("S3 storage provider is not yet implemented; use 'local' or remove the storage.provider setting")
-	default:
-		logger.Warn("Unknown or no storage provider configured, using mock")
+	switch len(providers) {
+	case 0:
+		logger.Warn("No storage providers configured, using mock")
 		storageProvider = &storage.MockProvider{}
-		artifactHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "Artifact serving not available for this provider", http.StatusNotFound)
-		})
+	case 1:
+		storageProvider = providers[0]
+	default:
+		storageProvider = storage.NewMultiProvider(providers, logger)
 	}
 
 	// 4. Initialize Notifications

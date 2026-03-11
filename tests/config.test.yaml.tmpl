@@ -20,9 +20,10 @@ detection:
     target_objects: ["person"]
 
 storage:
-  provider: "local"
-  local:
-    root_path: "{{.StorageDir}}"
+  providers:
+    - type: local
+      local:
+        root_path: "{{.StorageDir}}"
 
 notifications:
   - type: "webhook"

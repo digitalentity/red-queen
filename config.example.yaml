@@ -46,15 +46,22 @@ detection:
     max_artifact_size: 20971520 # Max file size in bytes (20MB)
 
 # Artifact Storage Module (Permanent)
+# List one or more providers; artifacts are uploaded to all of them concurrently.
+# Supported types: local, google_drive
+#
+# URL preference: when multiple providers are configured, the URL sent in
+# notifications is taken from the first provider (by config order) that
+# succeeds. Place the provider whose URL you want recipients to receive first.
+# Example: put google_drive before local if you want Drive links in alerts.
 storage:
-  provider: "local" # Options: local, s3, gcs
-  local:
-    root_path: "/var/lib/red-queen/storage"
-  s3:
-    bucket: "red-queen-artifacts"
-    region: "us-east-1"
-    access_key: ""
-    secret_key: ""
+  providers:
+    - type: local
+      local:
+        root_path: "/var/lib/red-queen/storage"
+    # - type: google_drive
+    #   google_drive:
+    #     credentials_file: /etc/red-queen/gdrive-sa.json
+    #     folder_id: ""  # ID of the Drive folder shared with the service account as Editor
 
 # Notification Module
 notifications:

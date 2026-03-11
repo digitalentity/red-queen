@@ -13,8 +13,9 @@ Most modern security cameras offer basic motion detection that is prone to false
   - **Gemini AI (Gemini)**: Leverages Google's multimodal Gemini models for advanced video understanding.
   - **Mock/Passthrough**: Providers for testing and debugging.
 - **Pluggable Artifact Storage**:
+  - **Multi-provider**: Upload to multiple backends simultaneously; failure of one does not block others.
   - **Local Storage**: Organizes threat artifacts by date and zone.
-  - **S3/GCS Support**: (Extensible) for cloud-based storage.
+  - **Google Drive**: Uploads artifacts to a configured Drive folder via a service account.
 - **Pluggable Notifications**:
   - **Telegram**: Rich alerts with media support.
   - **Webhooks**: Generic JSON POST integration.
@@ -65,7 +66,7 @@ graph TD
 
     subgraph "Pluggable Backends"
         MLInterface -.->|Cloud/Local| MLModel[ML Model Provider]
-        StorageInterface -.->|S3/LocalFS| StorageProvider[Storage Provider]
+        StorageInterface -.->|Local/GoogleDrive| StorageProvider[Storage Provider]
         NotificationInterface -.->|Webhook/Telegram/Homey| NotificationProvider[Notification Provider]
     end
 ```
@@ -115,8 +116,8 @@ The system is configured via a `config.yaml` file. Key sections include:
 
 - `ftp`: Listen address, port, and credentials for camera ingestion.
 - `zones`: Mapping of IP addresses to human-readable zone names.
-- `ml`: Choice of provider (e.g., `gemini-ai`) and model parameters.
-- `storage`: Where to save flagged artifacts.
+- `detection`: Choice of ML provider (e.g., `gemini-ai`) and model parameters.
+- `storage`: List of storage backends (local, google_drive) to save flagged artifacts.
 - `notifications`: List of enabled notification channels.
 
 See `config.example.yaml` for a complete reference.
