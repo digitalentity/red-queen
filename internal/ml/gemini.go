@@ -8,12 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"redqueen/internal/config"
 	"redqueen/internal/models"
 
-	"google.golang.org/genai"
 	"go.uber.org/zap"
+	"google.golang.org/genai"
 )
 
 type GeminiAnalyzer struct {
@@ -78,9 +79,9 @@ func (a *GeminiAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Res
 	a.logger.Debug("Detected artifact type", zap.String("mime_type", mimeType), zap.String("path", event.FilePath))
 
 	// 3. Read file into memory (Inline Data)
-	// NOTE: We intentionally read the entire file into memory here to use the 'InlineData' 
-	// capability of the Gemini API. This is the most efficient approach for the artifact 
-	// sizes typical for this system (under 20MB). Memory usage is strictly bounded by 
+	// NOTE: We intentionally read the entire file into memory here to use the 'InlineData'
+	// capability of the Gemini API. This is the most efficient approach for the artifact
+	// sizes typical for this system (under 20MB). Memory usage is strictly bounded by
 	// MaxArtifactSize and system concurrency limits.
 	data, err := os.ReadFile(event.FilePath)
 	if err != nil {
@@ -88,12 +89,9 @@ func (a *GeminiAnalyzer) Analyze(ctx context.Context, event *models.Event) (*Res
 	}
 
 	// 4. Generate Content
-	prompt := fmt.Sprintf("Analyze this artifact from zone '%s'. Detect any of these objects: %s.", 
-		event.Zone, strings.Join(a.cfg.TargetObjects, ", "))
-
-	systemInstruction := fmt.Sprintf(`You are a security analyst. 
-Analyze the provided media for security threats in the zone: %s.
-Search specifically for: %s.
+	systemInstruction := fmt.Sprintf(`You are a physical security analyst. 
+Analyze the provided media for security threats and indicate how confident you are in your findings.
+Search specifically for following objects or bejaviors: %s.
 You MUST return a valid JSON object with the following structure:
 {
   "is_threat": boolean,
@@ -101,6 +99,20 @@ You MUST return a valid JSON object with the following structure:
   "labels": [string],
   "description": string
 }`, event.Zone, strings.Join(a.cfg.TargetObjects, ", "))
+
+	genCfg := &genai.GenerateContentConfig{
+		SystemInstruction: &genai.Content{
+			Parts: []*genai.Part{
+				{
+					Text: systemInstruction,
+				},
+			},
+		},
+		ResponseMIMEType: "application/json",
+	}
+
+	prompt := fmt.Sprintf("Analyze the artifact recorded in the location '%s' at %s", event.Zone, event.Timestamp.Local().Format(time.RFC850))
+	a.logger.Info("Prepared gemini prompt", zap.String("prompt", prompt))
 
 	contents := []*genai.Content{
 		{
@@ -116,17 +128,6 @@ You MUST return a valid JSON object with the following structure:
 				},
 			},
 		},
-	}
-
-	genCfg := &genai.GenerateContentConfig{
-		SystemInstruction: &genai.Content{
-			Parts: []*genai.Part{
-				{
-					Text: systemInstruction,
-				},
-			},
-		},
-		ResponseMIMEType: "application/json",
 	}
 
 	res, err := a.client.Models.GenerateContent(ctx, a.cfg.ModelName, contents, genCfg)
@@ -153,6 +154,13 @@ You MUST return a valid JSON object with the following structure:
 
 	// Adjust threat status based on threshold if model says it's a threat but confidence is low
 	isThreat := vResp.IsThreat && vResp.Confidence >= a.cfg.Threshold
+
+	a.logger.Info("Gemini AI analysis complete",
+		zap.String("json", text),
+		zap.Bool("is_threat", isThreat),
+		zap.Float64("confidence", vResp.Confidence),
+		zap.Strings("labels", vResp.Labels),
+	)
 
 	return &Result{
 		IsThreat:   isThreat,
