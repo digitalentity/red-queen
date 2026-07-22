@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI Angents when working with code in this repository.
 
 ## Commands
 
@@ -63,19 +63,31 @@ Uses `fclairamb/ftpserverlib`. The key design is a **virtual filesystem** (`Obse
 - `ObservedFile.Close()` fires `coordinator.Process` in a goroutine using `sync.Once`.
 - On `Stop()`, `ftpserverlib` returns `nil` (not `http.ErrServerClosed`); do not use the HTTP sentinel here.
 
+### Detection pipeline (`internal/ml`)
+
+`ml.NewAnalyzer` builds a single stage from `config.AnalyzerConfig` (provider: `gemini`, `passthrough`, or `mock`). `internal/app/app.go` optionally wraps an analysis stage with a prefilter stage via `ml.NewChainedAnalyzer` when `cfg.Detection.Prefilter` is set — both stages implement `ml.Analyzer`, so any analyzer (e.g. a local YOLO ONNX model) can gate a slower/costlier one (e.g. Gemini). See `docs/YOLO_PREFILTER.md`.
+
+### Storage fan-out (`internal/storage`)
+
+`internal/app/app.go` builds one `storage.Provider` per entry in `cfg.Storage.Providers` (`local`), then wraps them: zero configured → `MockProvider`, one → used directly, multiple → `storage.NewMultiProvider` fans writes out to all and tolerates individual failures.
+
 ### Interfaces and extension points
 
 All major subsystems are behind interfaces defined in their own packages:
 
 | Interface | Package | Implementations |
 |-----------|---------|-----------------|
-| `ml.Analyzer` | `internal/ml` | `GeminiAnalyzer`, `PassThroughAnalyzer`, `MockAnalyzer` |
-| `storage.Provider` | `internal/storage` | `LocalStorage`, `MockProvider` |
+| `ml.Analyzer` | `internal/ml` | `GeminiAnalyzer`, `PassThroughAnalyzer`, `MockAnalyzer`, `ChainedAnalyzer` (prefilter + analysis) |
+| `storage.Provider` | `internal/storage` | `LocalStorage`, `MultiProvider` (fan-out), `MockProvider` |
 | `notify.Notifier` | `internal/notify` | `WebhookNotifier`, `TelegramNotifier`, `HomeyNotifier`, `MockNotifier` |
 | `zone.Manager` | `internal/zone` | `managerImpl` (unexported), `MockManager` (test-only) |
 | `coordinator.Processor` | `internal/coordinator` | `*Coordinator` |
 
-To add a new notifier: implement `notify.Notifier`, register it in `RegisterNotifiers` within `internal/app/app.go`, and add config fields to `NotifyConfig` in `internal/config/config.go`.
+To add a new notifier: implement `notify.Notifier`, add its `case` to the notifier switch in `app.New` (`internal/app/app.go`), and add config fields to `NotifyConfig` in `internal/config/config.go`.
+
+### REST API (`pkg/api`)
+
+`api.NewServer` serves stored artifacts (via the `http.Handler` picked in `app.New` — first `local` storage provider wins), health, and `/metrics`.
 
 ### Configuration (`internal/config/config.go`)
 
