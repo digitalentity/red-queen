@@ -83,25 +83,12 @@ type StorageConfig struct {
 // StorageProviderConfig holds the configuration for a single storage backend.
 // Fields that do not apply to a given type are ignored.
 type StorageProviderConfig struct {
-	Type        string       `mapstructure:"type"` // "local" | "google_drive"
-	Local       LocalConfig  `mapstructure:"local"`
-	GoogleDrive GDriveConfig `mapstructure:"google_drive"`
+	Type  string      `mapstructure:"type"` // "local"
+	Local LocalConfig `mapstructure:"local"`
 }
 
 type LocalConfig struct {
 	RootPath string `mapstructure:"root_path"`
-}
-
-// GDriveConfig configures the Google Drive storage backend.
-// The target folder must be shared with the service account as Editor.
-// Uploaded files are private and inherit the folder's sharing settings —
-// the webViewLink included in notifications is only accessible to accounts
-// with explicit folder access.
-type GDriveConfig struct {
-	// CredentialsFile is the path to a Google service account JSON key file.
-	CredentialsFile string `mapstructure:"credentials_file"`
-	// FolderID is the ID of the Drive folder to upload artifacts into.
-	FolderID string `mapstructure:"folder_id"`
 }
 
 type NotifyConfig struct {
@@ -145,13 +132,6 @@ func (c *Config) Validate() error {
 		case "local":
 			if p.Local.RootPath == "" {
 				return fmt.Errorf("storage.providers[%d] (local): root_path must not be empty", i)
-			}
-		case "google_drive":
-			if p.GoogleDrive.CredentialsFile == "" {
-				return fmt.Errorf("storage.providers[%d] (google_drive): credentials_file must not be empty", i)
-			}
-			if p.GoogleDrive.FolderID == "" {
-				return fmt.Errorf("storage.providers[%d] (google_drive): folder_id must not be empty", i)
 			}
 		case "":
 			return fmt.Errorf("storage.providers[%d]: type must not be empty", i)

@@ -89,14 +89,6 @@ func New(logger *zap.Logger, cfg *config.Config) (*App, error) {
 				artifactHandler = http.FileServer(http.Dir(pcfg.Local.RootPath))
 			}
 			logger.Info("Storage: local enabled", zap.String("root_path", pcfg.Local.RootPath))
-		case "google_drive":
-			p, err := storage.NewGDriveStorage(ctx, pcfg.GoogleDrive)
-			if err != nil {
-				cancel()
-				return nil, fmt.Errorf("failed to init google_drive storage: %w", err)
-			}
-			providers = append(providers, p)
-			logger.Info("Storage: google_drive enabled", zap.String("folder_id", pcfg.GoogleDrive.FolderID))
 		default:
 			logger.Warn("Unknown storage provider type, skipping", zap.String("type", pcfg.Type))
 		}

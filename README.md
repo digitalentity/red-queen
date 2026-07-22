@@ -18,7 +18,6 @@ Most modern security cameras offer basic motion detection that is prone to false
 - **Pluggable Artifact Storage**:
   - **Multi-provider**: Upload to multiple backends simultaneously; failure of one does not block others.
   - **Local Storage**: Organizes threat artifacts by date and zone.
-  - **Google Drive**: Uploads artifacts to a configured Drive folder via a service account.
 - **Pluggable Notifications**:
   - **Telegram**: Rich alerts with media support.
   - **Webhooks**: Generic JSON POST integration.
@@ -69,7 +68,7 @@ graph TD
 
     subgraph "Pluggable Backends"
         MLInterface -.->|Cloud/Local| MLModel[ML Model Provider]
-        StorageInterface -.->|Local/GoogleDrive| StorageProvider[Storage Provider]
+        StorageInterface -.->|Local| StorageProvider[Storage Provider]
         NotificationInterface -.->|Webhook/Telegram/Homey| NotificationProvider[Notification Provider]
     end
 ```
@@ -120,7 +119,7 @@ The system is configured via a `config.yaml` file. Key sections include:
 - `ftp`: Listen address, port, and credentials for camera ingestion.
 - `zones`: Mapping of IP addresses to human-readable zone names.
 - `detection`: Choice of ML provider (e.g., `gemini-ai`) and model parameters.
-- `storage`: List of storage backends (local, google_drive) to save flagged artifacts.
+- `storage`: List of storage backends (local) to save flagged artifacts.
 - `notifications`: List of enabled notification channels.
 
 See `config.example.yaml` for a complete reference.

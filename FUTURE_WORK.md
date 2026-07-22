@@ -14,7 +14,7 @@ This document outlines planned and suggested improvements for the Red Queen Vide
 - **Behavioral Analysis**: Move beyond object detection to analyze behavior (e.g., a person loitering or climbing a fence).
 
 ## 3. Storage & Data Management
-- **Cloud Storage Providers**: Add Google Cloud Storage (GCS) and S3-compatible providers. Google Drive is already supported; GCS/S3 are not yet implemented.
+- **Cloud Storage Providers**: Add Google Cloud Storage (GCS) and S3-compatible providers; none are implemented yet (a Google Drive provider existed previously and was removed as unmaintained).
 - **Artifact redirect for remote providers**: The `/artifacts/...` REST endpoint currently returns 404 when no local storage provider is configured. For remote providers (e.g. Google Drive), the handler could issue a `302 Found` redirect to the provider's own URL (e.g. Drive's `webViewLink`), keeping the endpoint a stable, provider-agnostic entry point. Possible design: `storage.Provider` gains an optional `ArtifactURL(id string) (string, bool)` method; the handler checks for a redirect before falling back to local file serving.
 - **Metadata Database**: Integrate a database (SQLite or PostgreSQL) to store event metadata. Currently, the system relies on the filesystem, making it difficult to search or filter historical events.
 - **Retention Policies**: Implement an automated cleanup service to delete artifacts and metadata older than a configurable number of days.
