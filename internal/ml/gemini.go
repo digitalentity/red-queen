@@ -98,7 +98,7 @@ You MUST return a valid JSON object with the following structure:
   "confidence": float (0.0 to 1.0),
   "labels": [string],
   "description": string
-}`, event.Zone, strings.Join(a.cfg.TargetObjects, ", "))
+}`, strings.Join(a.cfg.TargetObjects, ", "))
 
 	genCfg := &genai.GenerateContentConfig{
 		SystemInstruction: &genai.Content{
